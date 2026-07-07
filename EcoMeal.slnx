@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="EcoMeal.Api/EcoMeal.Api.csproj" />
+  <Project Path="EcoMeal.BusinessLogic/EcoMeal.BusinessLogic.csproj" />
+  <Project Path="EcoMeal.DataAccess/EcoMeal.DataAccess.csproj" />
+  <Project Path="EcoMeal.Shared/EcoMeal.Shared.csproj" />
+  <Project Path="EcoMeal.UI/EcoMeal.UI.csproj" />
+</Solution>

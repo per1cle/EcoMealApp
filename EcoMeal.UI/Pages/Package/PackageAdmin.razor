@@ -1,0 +1,311 @@
+@page "/admin/packages"
+@using EcoMeal.Shared.DTOs.PackageDTOs
+@using EcoMeal.Shared.DTOs.BusinessDTOs
+@using EcoMeal.Shared.DTOs.PackageTypeDTOs
+@using BlazorBootstrap
+@inject HttpClient Http
+
+<PageTitle>Admin - Packages</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Package Management</h1>
+        <button class="btn btn-primary shadow-sm"
+                @onclick="() => ShowPopup(new PackageGetDTO { PickupStart = DateTime.Today.AddHours(10), PickupEnd = DateTime.Today.AddHours(18) })">
+            <i class="bi bi-plus-lg me-2"></i> Add New Package
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Image</th>
+                            <th>Package Name</th>
+                            <th>Business</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in packages)
+                        {
+                            <tr>
+                                <td style="width: 80px;">
+                                    <img src="@p.ImageUrl" alt="img" class="rounded"
+                                         style="width: 50px; height: 50px; object-fit: cover;" />
+                                </td>
+                                <td class="align-middle fw-bold">@p.Name</td>
+                                <td class="align-middle text-muted">@(businesses.FirstOrDefault(b => b.Id ==
+                                                                        p.BusinessId)?.Name ?? "Unknown")</td>
+                                    <td class="align-middle text-muted">@p.Quantity left</td>
+                                    <td class="align-middle fw-bold text-success">$@p.Price.ToString("0.00")</td>
+                                    <td class="align-middle text-end">
+                                        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => ShowPopup(p)">
+                                            <i class="bi bi-pencil-square"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeletePackage(p.Id)">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                            @if (!packages.Any())
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No packages found.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (isPopupVisible && editModel != null)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">@(isNew ? "Add Package" : "Edit Package")</h5>
+                        <button type="button" class="btn-close" @onclick="ClosePopup"></button>
+                    </div>
+
+                    <EditForm Model="@editModel" OnValidSubmit="OnValidSubmit">
+                        <DataAnnotationsValidator></DataAnnotationsValidator>
+
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Package Name</label>
+                                    <InputText @bind-Value="editModel.Name" class="form-control"
+                                               placeholder="e.g., Surprise Meal" />
+                                    <ValidationMessage For="@(() => editModel.Name)" />
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Business</label>
+                                    <InputSelect @bind-Value="editModel.BusinessId" class="form-select">
+                                        <option value="@Guid.Empty">-- Select business --</option>
+                                        @foreach (var b in businesses)
+                                        {
+                                            <option value="@b.Id">@b.Name</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => editModel.BusinessId)" />
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Package Type</label>
+                                    <InputSelect @bind-Value="editModel.PackageTypeId" class="form-select">
+                                        <option value="@Guid.Empty">-- Select type --</option>
+                                        @foreach (var pt in packageTypes)
+                                        {
+                                            <option value="@pt.Id">@pt.Name</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => editModel.PackageTypeId)" />
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Price</label>
+                                    <InputNumber @bind-Value="editModel.Price" class="form-control" placeholder="0.00" />
+                                    <ValidationMessage For="@(() => editModel.Price)" />
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Quantity</label>
+                                    <InputNumber @bind-Value="editModel.Quantity" class="form-control" placeholder="1" />
+                                    <ValidationMessage For="@(() => editModel.Quantity)" />
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Pickup Start</label>
+                                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="editModel.PickupStart"
+                                               class="form-control" />
+                                    <ValidationMessage For="@(() => editModel.PickupStart)" />
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Pickup End</label>
+                                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="editModel.PickupEnd"
+                                               class="form-control" />
+                                    <ValidationMessage For="@(() => editModel.PickupEnd)" />
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Description</label>
+                                <InputTextArea @bind-Value="editModel.Description" class="form-control" rows="2" />
+                                <ValidationMessage For="@(() => editModel.Description)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Image URL</label>
+                                <InputText @bind-Value="editModel.ImageUrl" class="form-control" placeholder="https://..." />
+                                <ValidationMessage For="@(() => editModel.ImageUrl)" />
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="ClosePopup">Cancel</button>
+                            <button type="submit" class="btn btn-success fw-bold" disabled="@isSaving">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                    <span>Saving...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-check-lg me-1"></i> <span>Save</span>
+                                }
+                            </button>
+                        </div>
+
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+
+@code {
+    private List<PackageGetDTO> packages = new List<PackageGetDTO>();
+    private List<BusinessGetDTO> businesses = new List<BusinessGetDTO>();
+    private List<PackageTypeGetDTO> packageTypes = new List<PackageTypeGetDTO>();
+
+    private PackageUpdateDTO? editModel;
+
+    private bool isPopupVisible = false;
+    private bool isLoading = true;
+    private bool isSaving = false;
+
+    private bool isNew => editModel?.Id == Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            businesses = await Http.GetFromJsonAsync<List<BusinessGetDTO>>("api/businesses") ?? new List<BusinessGetDTO>();
+            packageTypes = await Http.GetFromJsonAsync<List<PackageTypeGetDTO>>("api/packagetypes") ?? new
+List<PackageTypeGetDTO>();
+            packages = await Http.GetFromJsonAsync<List<PackageGetDTO>>("api/packages") ?? new List<PackageGetDTO>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowPopup(PackageGetDTO pkg)
+    {
+        editModel = new PackageUpdateDTO
+        {
+            Id = pkg.Id,
+            Name = pkg.Name,
+            Description = pkg.Description,
+            Price = pkg.Price,
+            Quantity = pkg.Quantity,
+            PickupStart = pkg.PickupStart,
+            PickupEnd = pkg.PickupEnd,
+            ImageUrl = pkg.ImageUrl,
+            BusinessId = pkg.BusinessId,
+            PackageTypeId = pkg.PackageTypeId
+        };
+
+        isPopupVisible = true;
+    }
+
+    private void ClosePopup()
+    {
+        isPopupVisible = false;
+        editModel = null;
+    }
+
+    private async Task OnValidSubmit()
+    {
+        if (editModel == null || editModel.BusinessId == Guid.Empty || editModel.PackageTypeId == Guid.Empty) return;
+
+        isSaving = true;
+        try
+        {
+            if (isNew)
+            {
+                var createDto = new PackageCreateDTO
+                {
+                    Name = editModel.Name,
+                    Description = editModel.Description,
+                    Price = editModel.Price,
+                    Quantity = editModel.Quantity,
+                    PickupStart = editModel.PickupStart,
+                    PickupEnd = editModel.PickupEnd,
+                    ImageUrl = editModel.ImageUrl,
+                    BusinessId = editModel.BusinessId,
+                    PackageTypeId = editModel.PackageTypeId
+                };
+
+                await Http.PostAsJsonAsync("api/packages", createDto);
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/packages/{editModel.Id}", editModel);
+            }
+
+            await LoadDataAsync();
+            ClosePopup();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving data: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeletePackage(Guid id)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/packages/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadDataAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting data: {ex.Message}");
+        }
+    }
+}
+

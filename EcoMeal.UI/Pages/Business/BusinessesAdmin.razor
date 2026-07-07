@@ -1,0 +1,254 @@
+﻿@page "/admin/businesses"
+@using EcoMeal.Shared.DTOs.BusinessDTOs
+@using EcoMeal.Shared.DTOs.BusinessTypeDTOs
+@inject HttpClient Http
+
+<PageTitle>Admin - Businesses</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Business Management</h1>
+        <button class="btn btn-primary shadow-sm" @onclick="() => ShowPopup(new BusinessGetDTO())">
+            <i class="bi bi-plus-lg me-2"></i> Add New Business
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Image</th>
+                            <th>Name</th>
+                            <th>Address</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in businesses)
+                        {
+                            <tr>
+                                <td style="width: 80px;">
+                                    <img src="@b.ImageUrl" alt="img" class="rounded"
+                                         style="width: 50px; height: 50px; object-fit: cover;" />
+                                </td>
+                                <td class="align-middle fw-bold">@b.Name</td>
+                                <td class="align-middle text-muted">@b.Address</td>
+                                <td class="align-middle text-end">
+                                    <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => ShowPopup(b)">
+                                        <i class="bi bi-pencil-square"></i> Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBusiness(b.Id)">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                        @if (!businesses.Any())
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">No businesses found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@if (isPopupVisible && editModel != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">@(isNew ? "Add Business" : "Edit Business")</h5>
+                    <button type="button" class="btn-close" @onclick="ClosePopup"></button>
+                </div>
+
+                <EditForm Model="@editModel" OnValidSubmit="OnValidSubmit">
+                    <DataAnnotationsValidator></DataAnnotationsValidator>
+
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Name</label>
+                            <InputText @bind-Value="editModel.Name" class="form-control"
+                                       placeholder="e.g., Green Bite Bistro" />
+                            <ValidationMessage For="@(() => editModel.Name)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Business Type</label>
+                            <InputSelect @bind-Value="editModel.BusinessTypeId" class="form-select">
+                                <option value="@Guid.Empty">-- Select type --</option>
+                                @foreach (var type in businessTypes)
+                                {
+                                    <option value="@type.Id">@type.Name</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => editModel.BusinessTypeId)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            <InputTextArea @bind-Value="editModel.Description" class="form-control" rows="3" />
+                            <ValidationMessage For="@(() => editModel.Description)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Address</label>
+                            <InputText @bind-Value="editModel.Address" class="form-control" placeholder="Street..." />
+                            <ValidationMessage For="@(() => editModel.Address)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Image URL</label>
+                            <InputText @bind-Value="editModel.ImageUrl" class="form-control" placeholder="https://..." />
+                            <ValidationMessage For="@(() => editModel.ImageUrl)" />
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="ClosePopup">Cancel</button>
+                        <button type="submit" class="btn btn-success fw-bold" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-lg me-1"></i> <span>Save</span>
+                            }
+                        </button>
+                    </div>
+
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BusinessGetDTO> businesses = new List<BusinessGetDTO>();
+    private List<BusinessTypeGetDTO> businessTypes = new List<BusinessTypeGetDTO>();
+
+    private BusinessUpdateDTO? editModel;
+
+    private bool isPopupVisible = false;
+    private bool isLoading = true;
+    private bool isSaving = false;
+
+    private bool isNew => editModel?.Id == Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            businessTypes = await Http.GetFromJsonAsync<List<BusinessTypeGetDTO>>("api/businesstypes") ?? new
+List<BusinessTypeGetDTO>();
+            businesses = await Http.GetFromJsonAsync<List<BusinessGetDTO>>("api/businesses") ?? new List<BusinessGetDTO>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowPopup(BusinessGetDTO business)
+    {
+        editModel = new BusinessUpdateDTO
+        {
+            Id = business.Id,
+            Name = business.Name,
+            Description = business.Description,
+            Address = business.Address,
+            ImageUrl = business.ImageUrl,
+            BusinessTypeId = business.BusinessTypeId
+        };
+
+        isPopupVisible = true;
+    }
+
+    private void ClosePopup()
+    {
+        isPopupVisible = false;
+        editModel = null;
+    }
+
+    private async Task OnValidSubmit()
+    {
+        if (editModel == null || editModel.BusinessTypeId == Guid.Empty) return;
+
+        isSaving = true;
+        try
+        {
+            if (isNew)
+            {
+                var createDto = new BusinessCreateDTO
+                {
+                    Name = editModel.Name,
+                    Description = editModel.Description,
+                    Address = editModel.Address,
+                    ImageUrl = editModel.ImageUrl,
+                    BusinessTypeId = editModel.BusinessTypeId
+                };
+
+                await Http.PostAsJsonAsync("api/businesses", createDto);
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/businesses/{editModel.Id}", editModel);
+            }
+
+            await LoadDataAsync();
+            ClosePopup();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving data: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteBusiness(Guid id)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/businesses/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadDataAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting data: {ex.Message}");
+        }
+    }
+}

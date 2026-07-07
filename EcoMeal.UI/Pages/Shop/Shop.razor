@@ -1,0 +1,78 @@
+@page "/shop"
+@using EcoMeal.Shared.DTOs.BusinessDTOs
+@inject HttpClient Http
+
+<PageTitle>Shop</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4">Discover Local Vendors</h1>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!businesses.Any())
+    {
+        <div class="alert alert-info">No vendors found at the moment.</div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            @foreach (var b in businesses)
+            {
+                <div class="col">
+                    <Card Class="h-100 shadow-sm border-0">
+                        <img src="@b.ImageUrl" alt="@b.Name" class="card-img-top" style="height: 200px; object-fit: cover;" />
+
+                        <CardBody Class="d-flex flex-column">
+                            <div class="mb-2">
+                                <CardTitle Class="mb-1 fw-bold fs-5">@b.Name</CardTitle>
+                            </div>
+
+                            <CardText Class="text-muted small mb-3">
+                                @b.Description
+                            </CardText>
+
+                            <div class="mt-auto pt-3 border-top">
+                                <div class="d-flex align-items-center mb-3 text-secondary" style="font-size: 0.875rem;">
+                                    <i class="bi bi-geo-alt-fill text-danger me-2"></i>
+                                    <span class="text-truncate" title="@b.Address">@b.Address</span>
+                                </div>
+
+                                <a href="/shop" class="btn btn-outline-success w-100 fw-bold shadow-sm">
+                                    <i class="bi bi-shop me-2"></i> View Packages
+                                </a>
+                            </div>
+                        </CardBody>
+                    </Card>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<BusinessGetDTO> businesses = new List<BusinessGetDTO>();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            businesses = await Http.GetFromJsonAsync<List<BusinessGetDTO>>("api/businesses") ?? new List<BusinessGetDTO>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Loading Error: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
