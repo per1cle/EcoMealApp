@@ -1,0 +1,195 @@
+@page "/administration"
+@using EcoMeal.Shared.DTOs.BusinessTypeDTOs
+@inject HttpClient Http
+
+<PageTitle>Administration</PageTitle>
+
+<div class="container-fluid mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Business Types</h2>
+        <button class="btn btn-primary shadow-sm" @onclick="() => ShowPopup(new BusinessTypeGetDTO())">
+            <i class="bi bi-plus-lg me-2"></i> Add New Business Type
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var bt in businessTypes)
+                        {
+                            <tr>
+                                <td class="align-middle">@bt.Name</td>
+                                <td class="align-middle text-end">
+                                    <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => ShowPopup(bt)">
+                                        <i class="bi bi-pencil-square"></i> Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBusinessType(bt.Id)">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                        @if (!businessTypes.Any())
+                        {
+                            <tr>
+                                <td colspan="2" class="text-center py-4 text-muted">No business types found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <PackageSection />
+</div>
+
+@if (isPopupVisible && editModel != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">@(isNew ? "Add Business Type" : "Edit Business Type")</h5>
+                    <button type="button" class="btn-close" @onclick="ClosePopup"></button>
+                </div>
+
+                <EditForm Model="@editModel" OnValidSubmit="OnValidSubmit">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Business Type Name</label>
+                            <InputText @bind-Value="editModel.Name" class="form-control" placeholder="e.g., Restaurant" />
+                            <ValidationMessage For="@(() => editModel.Name)" />
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="ClosePopup">Cancel</button>
+                        <button type="submit" class="btn btn-success fw-bold" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-lg me-1"></i> <span>Save</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BusinessTypeGetDTO> businessTypes = new();
+    private BusinessTypeUpdateDTO? editModel;
+    private bool isLoading = true;
+    private bool isPopupVisible = false;
+    private bool isSaving = false;
+    private bool isNew => editModel != null && editModel.Id == Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            businessTypes = await Http.GetFromJsonAsync<List<BusinessTypeGetDTO>>("api/businesstypes") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading business types: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowPopup(BusinessTypeGetDTO bt)
+    {
+        editModel = new BusinessTypeUpdateDTO
+        {
+            Id = bt.Id,
+            Name = bt.Name
+        };
+        isPopupVisible = true;
+    }
+
+    private void ClosePopup()
+    {
+        isPopupVisible = false;
+        editModel = null;
+    }
+
+    private async Task OnValidSubmit()
+    {
+        if (editModel == null) return;
+        editModel.Name = editModel.Name?.Trim() ?? string.Empty;
+        isSaving = true;
+
+        try
+        {
+            if (isNew)
+            {
+                var createDTO = new BusinessTypeCreateDTO { Name = editModel.Name };
+                await Http.PostAsJsonAsync("api/businesstypes", createDTO);
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/businesstypes/{editModel.Id}", editModel);
+            }
+            await LoadData();
+            ClosePopup();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving business type: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteBusinessType(Guid id)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/businesstypes/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting business type: {ex.Message}");
+        }
+    }
+}

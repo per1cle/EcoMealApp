@@ -87,8 +87,10 @@ namespace EcoMeal.DataAccess.Configurations
                 .IsRequired()
                 .HasMaxLength(255);
             builder.Property(b => b.Description)
+                .IsRequired(false)
                 .HasMaxLength(1000);
             builder.Property(b => b.ImageUrl)
+                .IsRequired(false)
                 .HasMaxLength(int.MaxValue);
             builder.HasOne(b => b.BusinessType)
                 .WithMany(bt => bt.Businesses)
@@ -107,8 +109,10 @@ namespace EcoMeal.DataAccess.Configurations
                 .IsRequired()
                 .HasMaxLength(255);
             builder.Property(p => p.Description)
+                .IsRequired(false)
                 .HasMaxLength(1000);
             builder.Property(p => p.ImageUrl)
+                .IsRequired(false)
                 .HasMaxLength(int.MaxValue);
             builder.Property(p => p.Price)
                 .HasPrecision(18, 2)

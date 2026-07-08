@@ -1,10 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-
 namespace EcoMeal.DataAccess.Repositories
 {
     public class BaseRepository<TEntity>(EcoMealDbContext context) : IRepository<TEntity> where TEntity : class
     {
-        public IQueryable<TEntity> GetAllAsQueryable() => context.Set<TEntity>().AsQueryable();
         public virtual async Task<TEntity?> GetByIdAsync(Guid id)
         {
             return await context.Set<TEntity>().FindAsync(id);

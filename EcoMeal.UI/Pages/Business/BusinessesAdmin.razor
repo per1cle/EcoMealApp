@@ -1,6 +1,7 @@
 ﻿@page "/admin/businesses"
 @using EcoMeal.Shared.DTOs.BusinessDTOs
 @using EcoMeal.Shared.DTOs.BusinessTypeDTOs
+@using System.IO
 @inject HttpClient Http
 
 <PageTitle>Admin - Businesses</PageTitle>
@@ -30,6 +31,7 @@
                         <tr>
                             <th>Image</th>
                             <th>Name</th>
+                            <th>Type</th>
                             <th>Address</th>
                             <th class="text-end">Actions</th>
                         </tr>
@@ -39,11 +41,24 @@
                         {
                             <tr>
                                 <td style="width: 80px;">
-                                    <img src="@b.ImageUrl" alt="img" class="rounded"
-                                         style="width: 50px; height: 50px; object-fit: cover;" />
+                                    @if (!string.IsNullOrWhiteSpace(b.ImageUrl))
+                                    {
+                                        <img src="@b.ImageUrl" alt="img" class="rounded"
+                                             style="width: 50px; height: 50px; object-fit: cover;" />
+                                    }
+                                    else
+                                    {
+                                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center"
+                                             style="width: 50px; height: 50px;">
+                                            <i class="bi bi-shop"></i>
+                                        </div>
+                                    }
                                 </td>
                                 <td class="align-middle fw-bold">@b.Name</td>
-                                <td class="align-middle text-muted">@b.Address</td>
+                                <td class="align-middle text-muted">
+                                    @(businessTypes.FirstOrDefault(bt => bt.Id == b.BusinessTypeId)?.Name ?? "Unknown")
+                                </td>
+                                <td class="align-middle">@b.Address</td>
                                 <td class="align-middle text-end">
                                     <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => ShowPopup(b)">
                                         <i class="bi bi-pencil-square"></i> Edit
@@ -57,7 +72,7 @@
                         @if (!businesses.Any())
                         {
                             <tr>
-                                <td colspan="4" class="text-center py-4 text-muted">No businesses found.</td>
+                                <td colspan="5" class="text-center py-4 text-muted">No businesses found.</td>
                             </tr>
                         }
                     </tbody>
@@ -70,7 +85,7 @@
 @if (isPopupVisible && editModel != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
 
                 <div class="modal-header">
@@ -82,64 +97,90 @@
                     <DataAnnotationsValidator></DataAnnotationsValidator>
 
                     <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Name</label>
-                            <InputText @bind-Value="editModel.Name" class="form-control"
-                                       placeholder="e.g., Green Bite Bistro" />
-                            <ValidationMessage For="@(() => editModel.Name)" />
-                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Business Name</label>
+                                <InputText @bind-Value="editModel.Name" class="form-control"
+                                           placeholder="e.g., Green Bite Bistro" />
+                                <ValidationMessage For="@(() => editModel.Name)" />
+                            </div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Business Type</label>
-                            <InputSelect @bind-Value="editModel.BusinessTypeId" class="form-select">
-                                <option value="@Guid.Empty">-- Select type --</option>
-                                @foreach (var type in businessTypes)
-                                {
-                                    <option value="@type.Id">@type.Name</option>
-                                }
-                            </InputSelect>
-                            <ValidationMessage For="@(() => editModel.BusinessTypeId)" />
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Description</label>
-                            <InputTextArea @bind-Value="editModel.Description" class="form-control" rows="3" />
-                            <ValidationMessage For="@(() => editModel.Description)" />
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Business Type</label>
+                                <InputSelect @bind-Value="editModel.BusinessTypeId" class="form-select">
+                                    <option value="@Guid.Empty">-- Select type --</option>
+                                    @foreach (var bt in businessTypes)
+                                    {
+                                        <option value="@bt.Id">@bt.Name</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => editModel.BusinessTypeId)" />
+                            </div>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label fw-bold">Address</label>
-                            <InputText @bind-Value="editModel.Address" class="form-control" placeholder="Street..." />
+                            <InputText @bind-Value="editModel.Address" class="form-control"
+                                       placeholder="Street name and number..." />
                             <ValidationMessage For="@(() => editModel.Address)" />
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Image URL</label>
-                            <InputText @bind-Value="editModel.ImageUrl" class="form-control" placeholder="https://..." />
-                            <ValidationMessage For="@(() => editModel.ImageUrl)" />
+                            <label class="form-label fw-bold">Description</label>
+                            <InputTextArea @bind-Value="editModel.Description" class="form-control" rows="3"
+                                           placeholder="Optional description..." />
+                            <ValidationMessage For="@(() => editModel.Description)" />
                         </div>
-                    </div>
 
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" @onclick="ClosePopup">Cancel</button>
-                        <button type="submit" class="btn btn-success fw-bold" disabled="@isSaving">
-                            @if (isSaving)
-                            {
-                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                <span>Saving...</span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-check-lg me-1"></i> <span>Save</span>
-                            }
-                        </button>
-                    </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Image (Upload file or paste URL)</label>
 
-                </EditForm>
+                            @if (!string.IsNullOrWhiteSpace(editModel.ImageUrl))
+                            {
+                                <div class="mb-2 text-center">
+                                    <img src="@editModel.ImageUrl" alt="Preview" class="img-thumbnail shadow-sm"
+                                         style="max-height: 160px; object-fit: cover;" />
+                                </div>
+                            }
+
+                            <div class="input-group mb-2">
+                                <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                                <InputText @bind-Value="editModel.ImageUrl" class="form-control"
+                                           placeholder="Paste image URL here (https://)..." />
+                            </div>
+
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-upload"></i></span>
+                                <InputFile OnChange="LoadFiles" class="form-control"
+                                           accept="image/png, image/jpeg, image/webp" />
+                            </div>
+
+                            <ValidationMessage For="@(() => editModel.ImageUrl)" />
+                            <small class="text-muted">You can either paste a direct link or upload an image from your device
+                                (Max 5MB).</small>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="ClosePopup">Cancel</button>
+                            <button type="submit" class="btn btn-success fw-bold" disabled="@isSaving">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                    <span>Saving...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-check-lg me-1"></i> <span>Save</span>
+                                }
+                            </button>
+                        </div>
+
+                    </EditForm>
+                </div>
             </div>
         </div>
-    </div>
-}
+    }
 
 @code {
     private List<BusinessGetDTO> businesses = new List<BusinessGetDTO>();
@@ -152,6 +193,8 @@
     private bool isSaving = false;
 
     private bool isNew => editModel?.Id == Guid.Empty;
+
+    private long maxFileSize = 1024 * 1024 * 5;
 
     protected override async Task OnInitializedAsync()
     {
@@ -177,16 +220,16 @@ List<BusinessTypeGetDTO>();
         }
     }
 
-    private void ShowPopup(BusinessGetDTO business)
+    private void ShowPopup(BusinessGetDTO b)
     {
         editModel = new BusinessUpdateDTO
         {
-            Id = business.Id,
-            Name = business.Name,
-            Description = business.Description,
-            Address = business.Address,
-            ImageUrl = business.ImageUrl,
-            BusinessTypeId = business.BusinessTypeId
+            Id = b.Id,
+            Name = b.Name,
+            Address = b.Address,
+            Description = b.Description,
+            ImageUrl = b.ImageUrl,
+            BusinessTypeId = b.BusinessTypeId
         };
 
         isPopupVisible = true;
@@ -198,9 +241,49 @@ List<BusinessTypeGetDTO>();
         editModel = null;
     }
 
+    private async Task LoadFiles(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            try
+            {
+                using var stream = file.OpenReadStream(maxFileSize);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                var imageBytes = memoryStream.ToArray();
+
+                var base64String = Convert.ToBase64String(imageBytes);
+                var format = file.ContentType;
+
+                if (editModel != null)
+                {
+                    editModel.ImageUrl = $"data:{format};base64,{base64String}";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error uploading file: {ex.Message}");
+            }
+        }
+    }
+
     private async Task OnValidSubmit()
     {
         if (editModel == null || editModel.BusinessTypeId == Guid.Empty) return;
+
+        editModel.Name = editModel.Name?.Trim() ?? string.Empty;
+        editModel.Address = editModel.Address?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(editModel.Description))
+            editModel.Description = null;
+        else
+            editModel.Description = editModel.Description.Trim();
+
+        if (string.IsNullOrWhiteSpace(editModel.ImageUrl))
+            editModel.ImageUrl = null;
+        else
+            editModel.ImageUrl = editModel.ImageUrl.Trim();
 
         isSaving = true;
         try
@@ -210,8 +293,8 @@ List<BusinessTypeGetDTO>();
                 var createDto = new BusinessCreateDTO
                 {
                     Name = editModel.Name,
-                    Description = editModel.Description,
                     Address = editModel.Address,
+                    Description = editModel.Description,
                     ImageUrl = editModel.ImageUrl,
                     BusinessTypeId = editModel.BusinessTypeId
                 };
