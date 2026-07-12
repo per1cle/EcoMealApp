@@ -1,0 +1,108 @@
+@page "/register"
+@using EcoMeal.Shared.DTOs.AuthDTOs
+@using EcoMeal.UI.Services
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Sign Up - EcoMeal</PageTitle>
+
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold">Create Account</h2>
+                        <p class="text-muted">Join EcoMeal to save delicious food!</p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+                        </div>
+                    }
+
+                    <EditForm Model="registerModel" OnValidSubmit="HandleRegister">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Full Name</label>
+                            <InputText @bind-Value="registerModel.Name" class="form-control" placeholder="John Doe" />
+                            <ValidationMessage For="@(() => registerModel.Name)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Email Address</label>
+                            <InputText @bind-Value="registerModel.Email" class="form-control"
+                                       placeholder="name@example.com" />
+                            <ValidationMessage For="@(() => registerModel.Email)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Password</label>
+                            <InputText @bind-Value="registerModel.Password" type="password" class="form-control"
+                                       placeholder="••••••••" />
+                            <ValidationMessage For="@(() => registerModel.Password)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Confirm Password</label>
+                            <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="form-control"
+                                       placeholder="••••••••" />
+                            <ValidationMessage For="@(() => registerModel.ConfirmPassword)"
+                                               class="text-danger small mt-1" />
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-lg w-100 fw-bold" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Creating account...</span>
+                            }
+                            else
+                            {
+                                <span>Sign Up</span>
+                            }
+                        </button>
+                    </EditForm>
+
+                    <div class="text-center mt-4">
+                        <p class="mb-0">Already have an account? <a href="/login"
+                                                                        class="text-success fw-bold text-decoration-none">Log in</a></p>
+                            <hr class="my-4" />
+                            <p class="mb-0 text-muted small">Are you a restaurant or store?</p>
+                            <a href="/register-business" class="btn btn-outline-warning mt-2 fw-bold w-100">
+                                <i class="bi bi-shop me-2"></i> Register as a Business
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+@code {
+    private RegisterDTO registerModel = new RegisterDTO();
+    private bool isLoading = false;
+    private string? errorMessage;
+
+    private async Task HandleRegister()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        var result = await AuthService.Register(registerModel);
+
+        if (result.IsSuccess)
+        {
+            // Odată înregistrat, îl trimitem la login
+            NavigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage;
+            isLoading = false;
+        }
+    }
+}

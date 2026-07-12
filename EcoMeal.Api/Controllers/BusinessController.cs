@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using EcoMeal.Shared.DTOs.BusinessDTOs;
 using EcoMeal.BusinessLogic.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 namespace EcoMeal.Api.Controllers;
 
 [ApiController]
@@ -22,7 +24,7 @@ public class BusinessController(IBusinessService businessService) : ControllerBa
         }
     }
 
-    [HttpPost]
+    [HttpPost("create")]
     public async Task<ActionResult<BusinessGetDTO>> AddBusiness(BusinessCreateDTO businessCreateDTO)
     {
         try
@@ -70,5 +72,40 @@ public class BusinessController(IBusinessService businessService) : ControllerBa
         {
             return StatusCode(500, $"An error occurred: {ex.Message}");
         }
+    }
+
+    [HttpGet("my-business")]
+    [Authorize(Roles = "Business")]
+    public async Task<ActionResult<BusinessGetDTO>> GetMyBusiness()
+    {
+        try
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userId, out var userGuid))
+            {
+                return Unauthorized("Invalid user ID.");
+            }
+
+            var business = await businessService.GetMyBusinessAsync(userGuid);
+            return Ok(business);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred: {ex.Message}");
+        }
+
+    }
+
+    [HttpPost("my-business")]
+    [Authorize(Roles = "Business")]
+    public async Task<IActionResult> CreateMyBusiness([FromBody] BusinessCreateDTO dto)
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdString, out Guid userId)) return Unauthorized();
+
+        dto.UserId = userId;
+
+        var createdBusiness = await businessService.AddBusinessAsync(dto);
+        return Ok(createdBusiness);
     }
 }

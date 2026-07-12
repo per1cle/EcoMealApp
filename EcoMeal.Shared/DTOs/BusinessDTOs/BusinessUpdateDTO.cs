@@ -16,6 +16,9 @@ public class BusinessUpdateDTO
     [MaxLength(255, ErrorMessage = "Business address cannot exceed 255 characters.")]
     public string Address { get; set; } = null!;
 
+    [Required(ErrorMessage = "User ID is required.")]
+    public Guid UserId { get; set; }
+
     private string? _imageUrl;
 
     //[Url(ErrorMessage = "Invalid URL format for ImageUrl.")]

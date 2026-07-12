@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\EcoMeal.DataAccess\EcoMeal.DataAccess.csproj" />
     <ProjectReference Include="..\EcoMeal.Shared\EcoMeal.Shared.csproj" />
+    <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
   </ItemGroup>
 
   <PropertyGroup>

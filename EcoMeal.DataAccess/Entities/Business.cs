@@ -3,6 +3,8 @@ namespace EcoMeal.DataAccess.Entities;
 public class Business
 {
     public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public User User { get; set; } = null!;
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
     public string? Address { get; set; }

@@ -5,6 +5,10 @@ using EcoMeal.DataAccess.Entities;
 using EcoMeal.DataAccess.Repositories;
 using EcoMeal.BusinessLogic.Services;
 using EcoMeal.BusinessLogic.Services.Interfaces;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +20,37 @@ builder.Services.AddControllers()
 
 builder.Services.AddDbContext<EcoMealDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("EcoMealDb")));
+
+builder.Services.AddIdentity<User, Role>(options =>
+{
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequiredLength = 6;
+})
+.AddEntityFrameworkStores<EcoMealDbContext>()
+.AddDefaultTokenProviders();
+
+var secretKey = builder.Configuration["JwtSettings:SecretKey"] ?? "OneOfTheBestSecretKeysEverUsedInTheHistoryOfTheWorld123!";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultSignInScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+    };
+});
 
 builder.Services.AddScoped<IRepository<Business>, BaseRepository<Business>>();
 builder.Services.AddScoped<IRepository<BusinessType>, BaseRepository<BusinessType>>();
@@ -45,7 +80,9 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowAnyOrigin");
 
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();

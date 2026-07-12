@@ -16,6 +16,7 @@ public class BusinessService(IRepository<Business> businessRepository) : IBusine
         var business = new Business
         {
             Name = businessCreateDTO.Name,
+            UserId = businessCreateDTO.UserId,
             Description = businessCreateDTO.Description,
             Address = businessCreateDTO.Address,
             ImageUrl = businessCreateDTO.ImageUrl,
@@ -45,12 +46,24 @@ public class BusinessService(IRepository<Business> businessRepository) : IBusine
         var business = await businessRepository.GetByIdAsync(id) ?? throw new KeyNotFoundException($"Business with ID {id} not found.");
         await businessRepository.DeleteAsync(business);
     }
+
+    public async Task<BusinessGetDTO?> GetMyBusinessAsync(Guid userId)
+    {
+        var businesses = await businessRepository.GetAllAsync();
+        var myBusiness = businesses.FirstOrDefault(b => b.UserId == userId);
+        if (myBusiness == null)
+        {
+            return null;
+        }
+        return MaptoBusinessGetDTO(myBusiness);
+    }
     private static BusinessGetDTO MaptoBusinessGetDTO(Business business)
     {
         return new BusinessGetDTO
         {
             Id = business.Id,
             Name = business.Name,
+            UserId = business.UserId,
             Description = business.Description ?? string.Empty,
             Address = business.Address ?? string.Empty,
             ImageUrl = business.ImageUrl ?? string.Empty,

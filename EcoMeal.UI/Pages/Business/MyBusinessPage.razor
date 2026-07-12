@@ -1,0 +1,462 @@
+@page "/business/dashboard"
+@using EcoMeal.Shared.DTOs.PackageDTOs
+@using EcoMeal.Shared.DTOs.BusinessDTOs
+@using EcoMeal.Shared.DTOs.PackageTypeDTOs
+@using EcoMeal.Shared.DTOs.BusinessTypeDTOs
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Business")]
+@inject HttpClient Http
+
+<PageTitle>My Business Dashboard</PageTitle>
+
+<div class="container-fluid mt-4">
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-warning" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (myBusiness == null)
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow-lg border-0 rounded-3 border-top border-warning border-4 mt-5">
+                    <div class="card-body p-5 text-center">
+                        <div class="bg-warning bg-opacity-10 text-warning rounded-circle d-inline-flex align-items-center justify-content-center p-4 mb-4"
+                             style="width: 80px; height: 80px;">
+                            <i class="bi bi-shop fs-1"></i>
+                        </div>
+                        <h2 class="fw-bold mb-3">Welcome to EcoMeal!</h2>
+                        <p class="text-muted mb-4">Before you can start adding food packages, you need to set up your
+                            business profile.</p>
+
+                            <button class="btn btn-warning btn-lg fw-bold px-5" @onclick="ShowBusinessSetup">
+                                <i class="bi bi-gear-fill me-2"></i> Setup My Business
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    else
+        {
+            <div class="row mb-4 align-items-center">
+                <div class="col">
+                    <h1 class="fw-bold mb-0">Dashboard</h1>
+                    <p class="text-muted">Manage your business profile and active packages.</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Partea Stângă: Detaliile Afacerii -->
+                <div class="col-lg-4 mb-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        @if (!string.IsNullOrEmpty(myBusiness.ImageUrl))
+                        {
+                            <img src="@myBusiness.ImageUrl" class="card-img-top" alt="Business Image"
+                                 style="height: 200px; object-fit: cover;">
+                        }
+                        else
+                        {
+                            <div class="bg-light text-center py-5">
+                                <i class="bi bi-image text-muted" style="font-size: 3rem;"></i>
+                            </div>
+                        }
+                        <div class="card-body">
+                            <h4 class="fw-bold">@myBusiness.Name</h4>
+                            <p class="text-muted small mb-3">
+                                <i class="bi bi-geo-alt-fill text-danger me-1"></i> @myBusiness.Address
+                            </p>
+                            <p class="card-text">@myBusiness.Description</p>
+
+                            <hr />
+                            <button class="btn btn-outline-secondary w-100 fw-bold" @onclick="EditBusinessProfile">
+                                <i class="bi bi-pencil-square me-2"></i> Edit Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-8 mb-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div
+                            class="card-header bg-white border-bottom-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+                            <h4 class="fw-bold mb-0"><i class="bi bi-box-seam text-warning me-2"></i> My Packages</h4>
+                            <button class="btn btn-warning fw-bold"
+                                    @onclick="() => ShowPackagePopup(new PackageGetDTO { PickupStart = DateTime.Today.AddHours(10), PickupEnd = DateTime.Today.AddHours(18) })">
+                                <i class="bi bi-plus-lg me-1"></i> Add Package
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            @if (!myPackages.Any())
+                            {
+                                <div class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                                    <h5>No packages yet</h5>
+                                    <p>Start adding surplus food to save it from waste!</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Image</th>
+                                                <th>Package Name</th>
+                                                <th>Price</th>
+                                                <th>Qty</th>
+                                                <th>Pickup Time</th>
+                                                <th class="text-end">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var pkg in myPackages)
+                                            {
+                                                <tr>
+                                                    <td>
+                                                        <img src="@pkg.ImageUrl" alt="img" class="rounded"
+                                                             style="width: 40px; height: 40px; object-fit: cover;" />
+                                                    </td>
+                                                    <td class="fw-bold">@pkg.Name</td>
+                                                    <td class="text-success fw-bold">$@pkg.Price.ToString("0.00")</td>
+                                                    <td><span class="badge bg-secondary">@pkg.Quantity</span></td>
+                                                    <td class="small text-muted">
+                                                        @pkg.PickupStart.ToString("HH:mm") - @pkg.PickupEnd.ToString("HH:mm")
+                                                    </td>
+                                                    <td class="text-end">
+                                                        <button class="btn btn-sm btn-light me-2"
+                                                                @onclick="() => ShowPackagePopup(pkg)">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                        <button class="btn btn-sm btn-outline-danger"
+                                                                @onclick="() => DeletePackage(pkg.Id)">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (isBusinessPopupVisible && businessEditModel != null)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning bg-opacity-10">
+                        <h5 class="modal-title fw-bold">@(myBusiness == null ? "Setup Business Profile" : "Edit Business Profile")</h5>
+                        <button type="button" class="btn-close" @onclick="CloseBusinessPopup"></button>
+                    </div>
+                    <EditForm Model="@businessEditModel" OnValidSubmit="SaveBusinessProfile">
+                        <DataAnnotationsValidator />
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Business Name</label>
+                                <InputText @bind-Value="businessEditModel.Name" class="form-control" />
+                                <ValidationMessage For="@(() => businessEditModel.Name)" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Business Type</label>
+                                <InputSelect @bind-Value="businessEditModel.BusinessTypeId" class="form-select">
+                                    <option value="@Guid.Empty">-- Select type --</option>
+                                    @foreach (var type in businessTypes)
+                                    {
+                                        <option value="@type.Id">@type.Name</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => businessEditModel.BusinessTypeId)" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Address</label>
+                                <InputText @bind-Value="businessEditModel.Address" class="form-control" />
+                                <ValidationMessage For="@(() => businessEditModel.Address)" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Description</label>
+                                <InputTextArea @bind-Value="businessEditModel.Description" class="form-control" rows="3" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Image URL</label>
+                                <InputText @bind-Value="businessEditModel.ImageUrl" class="form-control"
+                                           placeholder="https://..." />
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            @if (myBusiness != null)
+                            {
+                                <button type="button" class="btn btn-secondary" @onclick="CloseBusinessPopup">Cancel</button>
+                            }
+                            <button type="submit" class="btn btn-warning fw-bold" disabled="@isSaving">
+                                @(isSaving ? "Saving..." : "Save Profile")
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (isPackagePopupVisible && packageEditModel != null)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">@(packageEditModel.Id == Guid.Empty ? "Add New Package" : "Edit Package")</h5>
+                        <button type="button" class="btn-close" @onclick="ClosePackagePopup"></button>
+                    </div>
+                    <EditForm Model="@packageEditModel" OnValidSubmit="SavePackage">
+                        <DataAnnotationsValidator />
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Package Name</label>
+                                    <InputText @bind-Value="packageEditModel.Name" class="form-control" />
+                                    <ValidationMessage For="@(() => packageEditModel.Name)" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Package Type</label>
+                                    <InputSelect @bind-Value="packageEditModel.PackageTypeId" class="form-select">
+                                        <option value="@Guid.Empty">-- Select type --</option>
+                                        @foreach (var pt in packageTypes)
+                                        {
+                                            <option value="@pt.Id">@pt.Name</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => packageEditModel.PackageTypeId)" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Price</label>
+                                    <InputNumber @bind-Value="packageEditModel.Price" class="form-control" />
+                                    <ValidationMessage For="@(() => packageEditModel.Price)" />
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Qty</label>
+                                    <InputNumber @bind-Value="packageEditModel.Quantity" class="form-control" />
+                                    <ValidationMessage For="@(() => packageEditModel.Quantity)" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Image URL</label>
+                                    <InputText @bind-Value="packageEditModel.ImageUrl" class="form-control" />
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Pickup Start</label>
+                                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="packageEditModel.PickupStart"
+                                               class="form-control" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Pickup End</label>
+                                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="packageEditModel.PickupEnd"
+                                               class="form-control" />
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Description</label>
+                                <InputTextArea @bind-Value="packageEditModel.Description" class="form-control" rows="2" />
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="ClosePackagePopup">Cancel</button>
+                            <button type="submit" class="btn btn-warning fw-bold" disabled="@isSaving">Save Package</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+
+@code {
+    private bool isLoading = true;
+    private bool isSaving = false;
+
+    // Datele afacerii
+    private BusinessGetDTO? myBusiness;
+    private List<PackageGetDTO> myPackages = new List<PackageGetDTO>();
+
+    // Liste ajutătoare pentru dropdown-uri
+    private List<BusinessTypeGetDTO> businessTypes = new List<BusinessTypeGetDTO>();
+    private List<PackageTypeGetDTO> packageTypes = new List<PackageTypeGetDTO>();
+
+    // Modele pentru Formulare
+    private BusinessUpdateDTO? businessEditModel;
+    private PackageUpdateDTO? packageEditModel;
+
+    // Vizibilitate Modale
+    private bool isBusinessPopupVisible = false;
+    private bool isPackagePopupVisible = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        isLoading = true;
+        try
+        {
+            businessTypes = await Http.GetFromJsonAsync<List<BusinessTypeGetDTO>>("api/businesstypes") ?? new
+List<BusinessTypeGetDTO>();
+            packageTypes = await Http.GetFromJsonAsync<List<PackageTypeGetDTO>>("api/packagetypes") ?? new
+List<PackageTypeGetDTO>();
+
+            myBusiness = await Http.GetFromJsonAsync<BusinessGetDTO>("api/businesses/my-business");
+
+
+            if (myBusiness != null)
+            {
+                var allPackages = await Http.GetFromJsonAsync<List<PackageGetDTO>>("api/packages");
+                myPackages = allPackages?.Where(p => p.BusinessId == myBusiness.Id).ToList() ?? new List<PackageGetDTO>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Eroare: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowBusinessSetup()
+    {
+        businessEditModel = new BusinessUpdateDTO();
+        isBusinessPopupVisible = true;
+    }
+
+    private void EditBusinessProfile()
+    {
+        if (myBusiness == null) return;
+        businessEditModel = new BusinessUpdateDTO
+        {
+            Id = myBusiness.Id,
+            Name = myBusiness.Name,
+            Description = myBusiness.Description,
+            Address = myBusiness.Address,
+            ImageUrl = myBusiness.ImageUrl,
+            BusinessTypeId = myBusiness.BusinessTypeId
+        };
+        isBusinessPopupVisible = true;
+    }
+
+    private void CloseBusinessPopup()
+    {
+        isBusinessPopupVisible = false;
+        businessEditModel = null;
+    }
+
+    private async Task SaveBusinessProfile()
+    {
+        isSaving = true;
+        try
+        {
+            HttpResponseMessage response;
+            if (myBusiness == null)
+            {
+                response = await Http.PostAsJsonAsync("api/businesses/my-business", businessEditModel);
+            }
+            else
+            {
+                response = await Http.PutAsJsonAsync($"api/businesses/{businessEditModel!.Id}", businessEditModel);
+            }
+            if (response.IsSuccessStatusCode)
+            {
+                isBusinessPopupVisible = false;
+                await LoadDashboardData();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Eroare la salvarea afacerii: {errorContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Eroare la salvarea afacerii: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ShowPackagePopup(PackageGetDTO pkg)
+    {
+        packageEditModel = new PackageUpdateDTO
+        {
+            Id = pkg.Id,
+            Name = pkg.Name,
+            Description = pkg.Description,
+            Price = pkg.Price,
+            Quantity = pkg.Quantity,
+            PickupStart = pkg.PickupStart,
+            PickupEnd = pkg.PickupEnd,
+            ImageUrl = pkg.ImageUrl,
+            PackageTypeId = pkg.PackageTypeId,
+            BusinessId = myBusiness!.Id // Setăm FORȚAT pachetul ca fiind al acestei afaceri!
+        };
+        isPackagePopupVisible = true;
+    }
+
+    private void ClosePackagePopup()
+    {
+        isPackagePopupVisible = false;
+        packageEditModel = null;
+    }
+
+    private async Task SavePackage()
+    {
+        isSaving = true;
+        try
+        {
+            if (packageEditModel!.Id == Guid.Empty)
+            {
+                var createDto = new PackageCreateDTO
+                { /* mapare similară cu admin */
+                    Name = packageEditModel.Name,
+                    Price = packageEditModel.Price,
+                    Quantity = packageEditModel.Quantity,
+                    PickupStart = packageEditModel.PickupStart,
+                    PickupEnd = packageEditModel.PickupEnd,
+                    Description = packageEditModel.Description,
+                    ImageUrl = packageEditModel.ImageUrl,
+                    BusinessId = packageEditModel.BusinessId,
+                    PackageTypeId = packageEditModel.PackageTypeId
+                };
+                await Http.PostAsJsonAsync("api/packages", createDto);
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/packages/{packageEditModel.Id}", packageEditModel);
+            }
+            ClosePackagePopup();
+            await LoadDashboardData();
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeletePackage(Guid id)
+    {
+        await Http.DeleteAsync($"api/packages/{id}");
+        await LoadDashboardData();
+    }
+}

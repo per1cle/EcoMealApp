@@ -7,4 +7,5 @@ public interface IBusinessService
     Task DeleteBusinessAsync(Guid id);
     Task<BusinessGetDTO> UpdateBusinessAsync(Guid id, BusinessUpdateDTO businessUpdateDTO);
     Task<BusinessGetDTO> AddBusinessAsync(BusinessCreateDTO businessCreateDTO);
+    Task<BusinessGetDTO?> GetMyBusinessAsync(Guid userId);
 }

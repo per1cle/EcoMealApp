@@ -3,38 +3,13 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using EcoMeal.DataAccess.Entities;
 namespace EcoMeal.DataAccess.Configurations
 {
-    public class RoleConfiguration : IEntityTypeConfiguration<Role>
-    {
-        public void Configure(EntityTypeBuilder<Role> builder)
-        {
-            builder.ToTable("Role");
-            builder.HasKey(r => r.Id);
-            builder.Property(r => r.Name)
-                .IsRequired()
-                .HasMaxLength(50);
-        }
-    }
-
     public class UserConfiguration : IEntityTypeConfiguration<User>
     {
         public void Configure(EntityTypeBuilder<User> builder)
         {
-            builder.ToTable("User");
-            builder.HasKey(u => u.Id);
             builder.Property(u => u.Name)
                 .IsRequired()
                 .HasMaxLength(100);
-            builder.Property(u => u.Email)
-                .IsRequired()
-                .HasMaxLength(100);
-            builder.Property(u => u.PasswordHash)
-                .IsRequired();
-            builder.HasOne(u => u.Role)
-                .WithMany(r => r.Users)
-                .HasForeignKey(u => u.RoleId)
-                .IsRequired().OnDelete(DeleteBehavior.Cascade);
-            builder.HasIndex(u => u.Email)
-                .IsUnique();
         }
     }
 
@@ -92,10 +67,13 @@ namespace EcoMeal.DataAccess.Configurations
             builder.Property(b => b.ImageUrl)
                 .IsRequired(false)
                 .HasMaxLength(int.MaxValue);
+            builder.HasOne(b => b.User)
+                .WithOne()
+                .HasForeignKey<Business>(b => b.UserId).OnDelete(DeleteBehavior.NoAction);
             builder.HasOne(b => b.BusinessType)
                 .WithMany(bt => bt.Businesses)
                 .HasForeignKey(b => b.BusinessTypeId)
-                .IsRequired().OnDelete(DeleteBehavior.Cascade);
+                .IsRequired().OnDelete(DeleteBehavior.Restrict);
         }
     }
 
@@ -126,11 +104,11 @@ namespace EcoMeal.DataAccess.Configurations
             builder.HasOne(p => p.Business)
                 .WithMany(b => b.Packages)
                 .HasForeignKey(p => p.BusinessId)
-                .IsRequired().OnDelete(DeleteBehavior.Cascade);
+                .IsRequired().OnDelete(DeleteBehavior.Restrict);
             builder.HasOne(p => p.PackageType)
                 .WithMany(pt => pt.Packages)
                 .HasForeignKey(p => p.PackageTypeId)
-                .IsRequired().OnDelete(DeleteBehavior.Cascade);
+                .IsRequired().OnDelete(DeleteBehavior.Restrict);
         }
     }
 
@@ -145,15 +123,15 @@ namespace EcoMeal.DataAccess.Configurations
             builder.HasOne(o => o.Business)
                 .WithMany(b => b.Orders)
                 .HasForeignKey(o => o.BusinessId)
-                .IsRequired().OnDelete(DeleteBehavior.Cascade);
+                .IsRequired().OnDelete(DeleteBehavior.Restrict);
             builder.HasOne(o => o.Status)
                 .WithMany(s => s.Orders)
                 .HasForeignKey(o => o.StatusId)
-                .IsRequired().OnDelete(DeleteBehavior.Cascade);
+                .IsRequired().OnDelete(DeleteBehavior.Restrict);
             builder.HasOne(o => o.User)
                 .WithMany(u => u.Orders)
                 .HasForeignKey(o => o.UserId)
-                .IsRequired().OnDelete(DeleteBehavior.Cascade);
+                .IsRequired().OnDelete(DeleteBehavior.Restrict);
         }
     }
 

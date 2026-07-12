@@ -1,0 +1,89 @@
+@page "/login"
+@using EcoMeal.Shared.DTOs.AuthDTOs
+@using EcoMeal.UI.Services
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Login - EcoMeal</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-person-circle text-success" style="font-size: 3rem;"></i>
+                        <h2 class="fw-bold mt-2">Welcome Back</h2>
+                        <p class="text-muted">Please enter your details to sign in.</p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+                        </div>
+                    }
+
+                    <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Email Address</label>
+                            <InputText @bind-Value="loginModel.Email" class="form-control form-control-lg"
+                                       placeholder="name@example.com" />
+                            <ValidationMessage For="@(() => loginModel.Email)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Password</label>
+                            <InputText @bind-Value="loginModel.Password" type="password"
+                                       class="form-control form-control-lg" placeholder="••••••••" />
+                            <ValidationMessage For="@(() => loginModel.Password)" class="text-danger small mt-1" />
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-lg w-100 fw-bold" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>Signing in...</span>
+                            }
+                            else
+                            {
+                                <span>Sign In</span>
+                            }
+                        </button>
+                    </EditForm>
+
+                    <div class="text-center mt-4">
+                        <p class="mb-0">Don't have an account? <a href="/register"
+                                                                      class="text-success fw-bold text-decoration-none">Sign up here</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+@code {
+    private LoginDTO loginModel = new LoginDTO();
+    private bool isLoading = false;
+    private string? errorMessage;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        var result = await AuthService.Login(loginModel);
+
+        if (result.IsSuccess)
+        {
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage;
+            isLoading = false;
+        }
+    }
+}

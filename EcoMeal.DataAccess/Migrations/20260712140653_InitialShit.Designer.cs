@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EcoMeal.DataAccess.Migrations
 {
     [DbContext(typeof(EcoMealDbContext))]
-    [Migration("20260708064401_DataValidations")]
-    partial class DataValidations
+    [Migration("20260712140653_InitialShit")]
+    partial class InitialShit
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -52,31 +52,17 @@ namespace EcoMeal.DataAccess.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BusinessTypeId");
 
-                    b.ToTable("Business", (string)null);
+                    b.HasIndex("UserId")
+                        .IsUnique();
 
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("66666666-6666-6666-6666-666666666666"),
-                            Address = "Str. Victoriei, Nr. 10",
-                            BusinessTypeId = new Guid("11111111-1111-1111-1111-111111111111"),
-                            Description = "A cozy place with sustainable and delicious food.",
-                            ImageUrl = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
-                            Name = "Green Bite Bistro"
-                        },
-                        new
-                        {
-                            Id = new Guid("77777777-7777-7777-7777-777777777777"),
-                            Address = "Str. Libertății, Nr. 5",
-                            BusinessTypeId = new Guid("22222222-2222-2222-2222-222222222222"),
-                            Description = "Your local supermarket for fresh produce and essentials.",
-                            ImageUrl = "https://images.unsplash.com/photo-1586201375761-83865001e3b6",
-                            Name = "FreshMart"
-                        });
+                    b.ToTable("Business", (string)null);
                 });
 
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.BusinessType", b =>
@@ -93,23 +79,6 @@ namespace EcoMeal.DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("BusinessType", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            Name = "Restaurant"
-                        },
-                        new
-                        {
-                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            Name = "Supermarket"
-                        },
-                        new
-                        {
-                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
-                            Name = "Bakery"
-                        });
                 });
 
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.Order", b =>
@@ -204,34 +173,6 @@ namespace EcoMeal.DataAccess.Migrations
                     b.HasIndex("PackageTypeId");
 
                     b.ToTable("Package", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("88888888-8888-8888-8888-888888888888"),
-                            BusinessId = new Guid("66666666-6666-6666-6666-666666666666"),
-                            Description = "Delicious leftover meals perfectly fine to eat.",
-                            ImageUrl = "https://images.unsplash.com/photo-1542838132-92c53300491e",
-                            Name = "End of Day Surprise",
-                            PackageTypeId = new Guid("44444444-4444-4444-4444-444444444444"),
-                            PickupEnd = new DateTime(2026, 7, 8, 22, 0, 0, 0, DateTimeKind.Unspecified),
-                            PickupStart = new DateTime(2026, 7, 8, 18, 0, 0, 0, DateTimeKind.Unspecified),
-                            Price = 15.5m,
-                            Quantity = 5
-                        },
-                        new
-                        {
-                            Id = new Guid("99999999-9999-9999-9999-999999999999"),
-                            BusinessId = new Guid("77777777-7777-7777-7777-777777777777"),
-                            Description = "Perfect for toast, sandwiches or making breadcrumbs.",
-                            ImageUrl = "https://images.unsplash.com/photo-1509440159596-0249088772ff",
-                            Name = "Yesterday's Bread Bundle",
-                            PackageTypeId = new Guid("55555555-5555-5555-5555-555555555555"),
-                            PickupEnd = new DateTime(2026, 7, 8, 20, 0, 0, 0, DateTimeKind.Unspecified),
-                            PickupStart = new DateTime(2026, 7, 8, 16, 0, 0, 0, DateTimeKind.Unspecified),
-                            Price = 3.5m,
-                            Quantity = 20
-                        });
                 });
 
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.PackageType", b =>
@@ -248,18 +189,6 @@ namespace EcoMeal.DataAccess.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PackageType", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = new Guid("44444444-4444-4444-4444-444444444444"),
-                            Name = "Surprise Bag"
-                        },
-                        new
-                        {
-                            Id = new Guid("55555555-5555-5555-5555-555555555555"),
-                            Name = "Pastry Bag"
-                        });
                 });
 
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.Role", b =>
@@ -268,14 +197,26 @@ namespace EcoMeal.DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Role", (string)null);
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("RoleNameIndex")
+                        .HasFilter("[NormalizedName] IS NOT NULL");
+
+                    b.ToTable("AspNetRoles", (string)null);
                 });
 
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.Status", b =>
@@ -300,18 +241,83 @@ namespace EcoMeal.DataAccess.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("NormalizedUserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex")
+                        .HasFilter("[NormalizedUserName] IS NOT NULL");
+
+                    b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ClaimValue")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("RoleId")
@@ -319,12 +325,88 @@ namespace EcoMeal.DataAccess.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
-                        .IsUnique();
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AspNetRoleClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+                {
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ProviderKey")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ProviderDisplayName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("LoginProvider", "ProviderKey");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AspNetUserLogins", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("UserId", "RoleId");
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("User", (string)null);
+                    b.ToTable("AspNetUserRoles", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("UserId", "LoginProvider", "Name");
+
+                    b.ToTable("AspNetUserTokens", (string)null);
                 });
 
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.Business", b =>
@@ -332,10 +414,18 @@ namespace EcoMeal.DataAccess.Migrations
                     b.HasOne("EcoMeal.DataAccess.Entities.BusinessType", "BusinessType")
                         .WithMany("Businesses")
                         .HasForeignKey("BusinessTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EcoMeal.DataAccess.Entities.User", "User")
+                        .WithOne()
+                        .HasForeignKey("EcoMeal.DataAccess.Entities.Business", "UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("BusinessType");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.Order", b =>
@@ -343,19 +433,19 @@ namespace EcoMeal.DataAccess.Migrations
                     b.HasOne("EcoMeal.DataAccess.Entities.Business", "Business")
                         .WithMany("Orders")
                         .HasForeignKey("BusinessId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("EcoMeal.DataAccess.Entities.Status", "Status")
                         .WithMany("Orders")
                         .HasForeignKey("StatusId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("EcoMeal.DataAccess.Entities.User", "User")
                         .WithMany("Orders")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Business");
@@ -389,13 +479,13 @@ namespace EcoMeal.DataAccess.Migrations
                     b.HasOne("EcoMeal.DataAccess.Entities.Business", "Business")
                         .WithMany("Packages")
                         .HasForeignKey("BusinessId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("EcoMeal.DataAccess.Entities.PackageType", "PackageType")
                         .WithMany("Packages")
                         .HasForeignKey("PackageTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Business");
@@ -403,15 +493,55 @@ namespace EcoMeal.DataAccess.Migrations
                     b.Navigation("PackageType");
                 });
 
-            modelBuilder.Entity("EcoMeal.DataAccess.Entities.User", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
-                    b.HasOne("EcoMeal.DataAccess.Entities.Role", "Role")
-                        .WithMany("Users")
+                    b.HasOne("EcoMeal.DataAccess.Entities.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
+                {
+                    b.HasOne("EcoMeal.DataAccess.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
+                {
+                    b.HasOne("EcoMeal.DataAccess.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
+                {
+                    b.HasOne("EcoMeal.DataAccess.Entities.Role", null)
+                        .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Role");
+                    b.HasOne("EcoMeal.DataAccess.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
+                {
+                    b.HasOne("EcoMeal.DataAccess.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.Business", b =>
@@ -439,11 +569,6 @@ namespace EcoMeal.DataAccess.Migrations
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.PackageType", b =>
                 {
                     b.Navigation("Packages");
-                });
-
-            modelBuilder.Entity("EcoMeal.DataAccess.Entities.Role", b =>
-                {
-                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("EcoMeal.DataAccess.Entities.Status", b =>
