@@ -21,19 +21,15 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDTO> Login(LoginDTO loginModel)
     {
-        // 1. Apelăm API-ul (AuthController.cs)
         var response = await _http.PostAsJsonAsync("api/auth/login", loginModel);
         var result = await response.Content.ReadFromJsonAsync<AuthResponseDTO>();
 
         if (response.IsSuccessStatusCode && result != null && result.IsSuccess)
         {
-            // 2. Salvăm Token-ul în browser
             await _localStorage.SetItemAsync("authToken", result.Token);
 
-            // 3. Anunțăm CustomProvider-ul că utilizatorul s-a conectat cu succes
             ((CustomAuthStateProvider)_authStateProvider).MarkUserAsAuthenticated(result.Token!);
 
-            // 4. Punem token-ul pe HttpClient ca să meargă și cererile viitoare (ex: Edit Business)
             _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", result.Token);
 
             return result;
@@ -58,7 +54,6 @@ public class AuthService : IAuthService
 
     public async Task Logout()
     {
-        // Ștergem token-ul și resetăm starea
         await _localStorage.RemoveItemAsync("authToken");
         ((CustomAuthStateProvider)_authStateProvider).MarkUserAsLoggedOut();
         _http.DefaultRequestHeaders.Authorization = null;

@@ -65,9 +65,9 @@
     <div class="offcanvas-backdrop fade show" @onclick="ClosePopup"></div>
 
     <div class="offcanvas offcanvas-bottom show d-block shadow-lg" tabindex="-1"
-         style="height: 55vh; border-top-left-radius: 20px; border-top-right-radius: 20px;">
+         style="height: 75vh; border-top-left-radius: 20px; border-top-right-radius: 20px;">
         <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title fw-bold">Pachete - @selectedBusiness?.Name</h5>
+            <h5 class="offcanvas-title fw-bold">Packages - @selectedBusiness?.Name</h5>
             <button type="button" class="btn-close" @onclick="ClosePopup" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body">
@@ -87,37 +87,78 @@
                     @foreach (var package in packages)
                     {
                         <div
-                            class="list-group-item d-flex justify-content-between align-items-center mb-2 shadow-sm border rounded">
-                            <div class="me-3">
-                                <h6 class="mb-1 fw-bold">@package.Name</h6>
-                                <small class="text-muted d-block mb-1">@package.Description</small>
-                                <span class="badge bg-success fs-6">@package.Price RON</span>
+                            class="list-group-item d-flex justify-content-between align-items-center mb-2 shadow-sm border rounded p-3 bg-white">
+
+                            <div class="d-flex align-items-center" style="flex: 1; min-width: 0;">
+                                <img src="@(string.IsNullOrEmpty(package.ImageUrl) ? "images/default-package.png" : package.ImageUrl)"
+                                     alt="@package.Name" class="me-3 border shadow-sm"
+                                     style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;" />
+
+                                <div class="text-truncate" style="max-width: calc(100% - 100px);">
+                                    <h6 class="mb-1 fw-bold text-dark text-truncate">@package.Name</h6>
+                                    <small class="text-muted d-block text-truncate" style="max-width: 260px;"
+                                           title="@package.Description">
+                                        @package.Description
+                                    </small>
+                                </div>
                             </div>
+
+                            <div class="text-center px-4" style="flex: 1; min-width: 150px;">
+                                <span class="text-muted small d-block mb-1">
+                                    <i class="bi bi-clock me-1"></i>Pickup Window:
+                                </span>
+                                <strong class="text-dark">
+                                    @package.PickupStart.ToString("HH:mm") - @package.PickupEnd.ToString("HH:mm")
+                                </strong>
+                            </div>
+
                             @{
                                 var cartItem = cart.FirstOrDefault(c => c.Package.Id == package.Id);
                             }
-                            @if (cartItem == null)
-                            {
-                                <button class="btn btn-success fw-bold px-4" @onclick="() => AddToCart(package)">
-                                    Add
-                                </button>
-                            }
-                            else
-                            {
-                                <div class="d-flex align-items-center gap-2">
-                                    <button
-                                        class="btn btn-outline-success btn-sm rounded-circle d-flex align-items-center justify-content-center"
-                                        style="width: 32px; height: 32px;" @onclick="() => UpdateQuantity(cartItem, -1)">
-                                        <i class="bi bi-dash-lg"></i>
-                                    </button>
-                                    <span class="fw-bold" style="min-width: 20px; text-align: center;">@cartItem.Quantity</span>
-                                    <button
-                                        class="btn btn-outline-success btn-sm rounded-circle d-flex align-items-center justify-content-center"
-                                        style="width: 32px; height: 32px;" @onclick="() => UpdateQuantity(cartItem, 1)">
-                                        <i class="bi bi-plus-lg"></i>
-                                    </button>
+                            <div class="d-flex align-items-center gap-3 justify-content-end" style="flex: 1; min-width: 220px;">
+
+                                <div class="text-end me-2">
+                                    <span class="fw-bold text-success fs-5 d-block">@package.Price RON</span>
+                                    <small class="text-muted d-block" style="font-size: 0.8rem;">
+                                        Stock: @package.Quantity packages
+                                    </small>
                                 </div>
-                            }
+
+                                
+                                <div style="min-width: 100px; display: flex; justify-content: flex-end;">
+                                    @if (cartItem == null)
+                                    {
+                                        <button class="btn btn-success fw-bold px-4" @onclick="() => AddToCart(package)"
+                                                disabled="@(package.Quantity <= 0)">
+                                            @(package.Quantity <= 0 ? "Epuizat" : "Add")
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex align-items-center gap-2">
+
+                                            <button
+                                                class="btn btn-outline-success btn-sm rounded-circle d-flex align-items-center justify-content-center"
+                                                style="width: 32px; height: 32px; cursor: pointer;"
+                                                @onclick="() => UpdateQuantity(cartItem, -1)">
+                                                <i class="bi bi-chevron-down"></i>
+                                            </button>
+
+                                            <span class="fw-bold" style="min-width: 20px; text-align: center;">@cartItem.Quantity</span>
+
+                                            
+                                            <button
+                                                class="btn btn-outline-success btn-sm rounded-circle d-flex align-items-center justify-content-center"
+                                                style="width: 32px; height: 32px; cursor: pointer;"
+                                                @onclick="() => UpdateQuantity(cartItem, 1)"
+                                                disabled="@(cartItem.Quantity >= package.Quantity)">
+                                                <i class="bi bi-chevron-up"></i>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
                         </div>
                     }
                 </div>
@@ -125,7 +166,20 @@
                 {
                     <div class="card bg-light border-0 shadow-sm mt-auto">
                         <div class="card-body">
-                            <h6 class="fw-bold">În comandă: @cart.Sum(c => c.Quantity) pachete</h6>
+                            <h6 class="fw-bold">My Order:</h6>
+                            <ul class="list-group list-group-flush mb-3">
+                                @foreach (var item in cart)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>@item.Package.Name (@item.Quantity)</span>
+                                        <span class="fw-bold">@((item.Package.Price * item.Quantity)) RON</span>
+                                    </li>
+                                }
+                            </ul>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="fw-bold">Total:</span>
+                                <span class="fw-bold">@((cart.Sum(item => item.Package.Price * item.Quantity))) RON</span>
+                            </div>
                             <button class="btn btn-success w-100 fw-bold mt-2" @onclick="SubmitOrder">
                                 Place Order
                             </button>
@@ -137,21 +191,87 @@
     </div>
 }
 
-@if (showSuccessMessage)
+@if (showSuccessPopup)
 {
-    <div class="position-fixed top-0 start-50 translate-middle-x mt-4" style="z-index: 1080;">
-        <div class="alert alert-success shadow-lg d-flex align-items-center px-4 py-3 mb-0 rounded-3" role="alert">
-            <i class="bi bi-check-circle-fill fs-4 me-2"></i>
-            <span class="fw-bold">Comanda a fost plasată cu succes!</span>
-        </div>
-    </div>
-}
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5); z-index: 1080;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0" style="border-radius: 16px;">
+
+                <div class="modal-header bg-success text-white py-3" style="border-top-left-radius: 16px; border-top-right-    
+                    radius: 16px;">
+                    <h5 class="modal-title fw-bold m-0">
+                        <i class="bi bi-check-circle-fill me-2"></i>Order Submitted!
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showSuccessPopup = false" aria-
+                            label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <div class="text-center mb-4">
+                        <div class="display-3 text-success mb-2">
+                            <i class="bi bi-bag-check-fill"></i>
+                        </div>
+                        <h4 class="fw-bold text-dark">Order #@lastOrderNumber</h4>
+                        <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill fw-semibold">Placed
+                            successfully!</span>
+                        </div>
+
+                        <div class="mb-4 bg-light p-3 rounded-3 border">
+                            <h6 class="fw-bold text-secondary text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.   
+                            05em;">Vendor: </h6>
+                            <h5 class="fw-bold text-dark mb-1">@lastBusinessName</h5>
+                            <p class="text-muted small mb-0">
+                                <i class="bi bi-geo-alt-fill text-danger me-1"></i>@lastBusinessAddress
+                            </p>
+                        </div>
+
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-secondary text-uppercase mb-2" style="font-size: 0.75rem; letter-spacing: 0.   
+                            05em;">Items: </h6>
+                            <div style="max-height: 180px; overflow-y: auto;">
+                                <ul class="list-group list-group-flush">
+                                    @foreach (var item in lastOrderItems)
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2     
+                                            border-bottom-0">
+                                            <span class="text-dark">@item.Package.Name <strong class="text-success ms-1"> x
+                                                @item.Quantity</strong></span>
+                                                <span class="fw-bold text-dark">@(item.Package.Price * item.Quantity) RON</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between fw-bold fs-5 border-top pt-3 mt-2">
+                                <span class="text-dark">Total:</span>
+                                <span class="text-success">@lastOrderTotal RON</span>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer border-0 p-3 bg-light" style="border-bottom-left-radius: 16px; border-bottom-right-   
+                            radius: 16px;">
+                            <button type="button" class="btn btn-success w-100 fw-bold py-2"
+                                    @onclick="() => showSuccessPopup = false">
+                                <i class="bi bi-check-circle me-2"></i>OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
 
 @code {
     private List<BusinessGetDTO> businesses = new List<BusinessGetDTO>();
     private bool isLoading = true;
     private Guid currentUserId;
-    private bool showSuccessMessage = false;
+
+    private bool showSuccessPopup = false;
+    private string? lastBusinessName;
+    private string? lastBusinessAddress;
+    private int lastOrderNumber;
+    private List<CartItem> lastOrderItems = new();
+    private double lastOrderTotal;
 
     private bool isPopupVisible = false;
     private BusinessGetDTO? selectedBusiness;
@@ -189,8 +309,8 @@
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
-        currentUserId = user.Identity?.IsAuthenticated == true ? Guid.Parse(user.FindFirst("sub")?.Value ??
-Guid.Empty.ToString()) : Guid.Empty;
+        currentUserId = user.Identity?.IsAuthenticated == true ? Guid.Parse(user.FindFirst(System.Security.Claims.ClaimTypes.
+  NameIdentifier)?.Value ?? Guid.Empty.ToString()) : Guid.Empty;
 
         isLoading = true;
         try
@@ -256,20 +376,28 @@ Guid.Empty.ToString()) : Guid.Empty;
 
             if (response.IsSuccessStatusCode)
             {
+                lastBusinessName = selectedBusiness.Name;
+                lastBusinessAddress = selectedBusiness.Address;
+                lastOrderNumber = orderDto.OrderNumber;
+                lastOrderItems = new List<CartItem>(cart);
+                lastOrderTotal = cart.Sum(item => item.Quantity * (int)item.Package.Price);
+
                 cart.Clear();
                 isPopupVisible = false;
-                showSuccessMessage = true;
+                showSuccessPopup = true;
                 StateHasChanged();
 
-                await Task.Delay(5000);
-                showSuccessMessage = false;
-                StateHasChanged();
             }
             else
             {
                 Console.WriteLine("Eroare la plasarea comenzii");
             }
         }
+    }
+
+    private async Task<int> Total()
+    {
+        return cart.Sum(item => item.Quantity * (int)item.Package.Price);
     }
 
 }

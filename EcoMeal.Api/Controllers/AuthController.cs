@@ -45,7 +45,6 @@ public class AuthController : ControllerBase
         }
 
         if (!await _roleManager.RoleExistsAsync("Customer"))
-
             await _roleManager.CreateAsync(new Role { Name = "Customer" });
         if (!await _roleManager.RoleExistsAsync("Admin"))
             await _roleManager.CreateAsync(new Role { Name = "Admin" });

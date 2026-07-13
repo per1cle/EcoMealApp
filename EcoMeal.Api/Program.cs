@@ -56,11 +56,14 @@ builder.Services.AddScoped<IRepository<Business>, BaseRepository<Business>>();
 builder.Services.AddScoped<IRepository<BusinessType>, BaseRepository<BusinessType>>();
 builder.Services.AddScoped<IRepository<Package>, BaseRepository<Package>>();
 builder.Services.AddScoped<IRepository<PackageType>, BaseRepository<PackageType>>();
+builder.Services.AddScoped<IRepository<Order>, BaseRepository<Order>>();
+builder.Services.AddScoped<IRepository<OrderPackage>, BaseRepository<OrderPackage>>();
 
 builder.Services.AddScoped<IBusinessService, BusinessService>();
 builder.Services.AddScoped<IBusinessTypeService, BusinessTypeService>();
 builder.Services.AddScoped<IPackageService, PackageService>();
 builder.Services.AddScoped<IPackageTypeService, PackageTypeService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 builder.Services.AddCors(options =>
 {

@@ -17,11 +17,15 @@
                 Home
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="shop">
-                Shop
-            </NavLink>
-        </div>
+        <AuthorizeView Roles="Customer">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="shop">
+                        Shop
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
         <AuthorizeView Roles="Admin">
             <Authorized>

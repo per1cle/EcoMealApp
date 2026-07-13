@@ -1,0 +1,203 @@
+@page "/my-orders" 
+@using EcoMeal.Shared.DTOs.OrderDTOs
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Customer")]
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>My Orders</PageTitle>
+
+<div class="container mt-4" style="max-width: 800px;">
+    <div class="d-flex align-items-center mb-4">
+        <i class="bi bi-bag-check-fill text-success fs-1 me-3"></i>
+        <h1 class="fw-bold m-0">My Orders</h1>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!myOrders.Any())
+    {
+        <div class="card text-center p-5 border-0 shadow-sm">
+            <div class="card-body">
+                <i class="bi bi-bag-x text-muted" style="font-size: 4rem;"></i>
+                <h4 class="fw-bold text-dark mt-3">You haven't placed any orders yet</h4>
+                <p class="text-muted">Explore local vendors and order your favorite packages!</p>
+                <a href="/shop" class="btn btn-success fw-bold px-4 mt-2">Go to Shopping</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        var activeOrders = myOrders.Where(o => o.StatusName == "Pending" || o.StatusName == "Confirmed").ToList();
+        var pastOrders = myOrders.Where(o => o.StatusName == "Completed" || o.StatusName == "Cancelled").ToList();
+
+        @if (activeOrders.Any())
+        {
+            <h4 class="fw-bold text-success mb-3">Active Orders</h4>
+            <div class="mb-5">
+                @foreach (var order in activeOrders)
+                {
+                    @RenderOrderCard(order)
+                }
+            </div>
+        }
+
+        @if (pastOrders.Any())
+        {
+            <h4 class="fw-bold text-secondary mb-3">Order History</h4>
+            <div>
+                @foreach (var order in pastOrders)
+                {
+                    @RenderOrderCard(order)
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<OrderGetDTO> myOrders = new();
+    private bool isLoading = true;
+    private Guid currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            currentUserId = user.Identity?.IsAuthenticated == true ?
+                Guid.Parse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString()) :
+Guid.Empty;
+
+            if (currentUserId != Guid.Empty)
+            {
+                var allOrders = await Http.GetFromJsonAsync<List<OrderGetDTO>>("api/orders") ?? new();
+                myOrders = allOrders
+                    .Where(o => o.UserId == currentUserId)
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading orders: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CancelOrder(OrderGetDTO order)
+    {
+        var cancelledStatusId = Guid.Parse("224f9b84-e878-4b04-bfb9-6bc6b3eba8dd");
+        var updateDto = new OrderUpdateDTO
+        {
+            Id = order.Id,
+            UserId = order.UserId,
+            BusinessId = order.BusinessId,
+            StatusId = cancelledStatusId,
+            OrderNumber = order.OrderNumber
+        };
+
+        var response = await Http.PutAsJsonAsync($"api/orders/{order.Id}", updateDto);
+        if (response.IsSuccessStatusCode)
+        {
+            // Reîncărcăm lista de comenzi
+            await OnInitializedAsync();
+        }
+        else
+        {
+            Console.WriteLine("Error cancelling order");
+        }
+    }
+
+    private RenderFragment RenderOrderCard(OrderGetDTO order) => __builder =>
+    {
+    <div class="card mb-3 border-0 shadow-sm">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+
+                    <span class="text-muted small d-block mb-1">Order Number: <strong>#@order.OrderNumber</strong></span>
+
+                    <h5 class="fw-bold text-dark mb-1">@order.BusinessName</h5>
+
+                    <p class="text-muted small mb-0">
+                        <i class="bi bi-geo-alt-fill text-danger me-1"></i>@order.BusinessAddress
+                    </p>
+                </div>
+                <div>
+
+                    <span
+                    class="badge px-3 py-2 rounded-pill fw-semibold @GetStatusBadgeClass(order.StatusName)">@order.StatusName</span>
+                </div>
+            </div>
+
+            <div class="border-top pt-3">
+                <ul class="list-group list-group-flush mb-3">
+                    @foreach (var item in order.OrderPackages)
+                    {
+                        <li
+                            class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-0 bg-transparent">
+
+                            <div style="flex: 1; min-width: 0;">
+                                <span class="text-dark">@item.PackageName <strong class="text-success ms-1">x
+                                    @item.Quantity</strong></span>
+                                </div>
+
+                                <div class="text-center" style="flex: 1; min-width: 150px;">
+                                    <span class="text-muted small">
+                                        <i class="bi bi-clock me-1"></i>@item.PickupStart.ToString("HH:mm") -
+                                        @item.PickupEnd.ToString("HH:mm")
+                                    </span>
+                                </div>
+
+                                <div class="text-end" style="flex: 1; min-width: 100px;">
+                                    <span class="fw-semibold text-dark">@(item.PackagePrice * item.Quantity) RON</span>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+
+                <div class="border-top pt-3 d-flex justify-content-between align-items-center fw-bold fs-6">
+                    <span>Total:</span>
+                    <span class="text-success">@order.OrderPackages.Sum(item => item.PackagePrice * item.Quantity) RON</span>
+                </div>
+
+                @if (order.StatusName == "Pending" || order.StatusName == "Confirmed")
+                {
+                    <div class="border-top pt-3 mt-3 d-flex justify-content-end">
+                        <button class="btn btn-outline-danger btn-sm fw-bold shadow-sm" 
+                                style="font-size: 0.75rem; padding: 0.2rem 0.6rem;" 
+                                @onclick="() => CancelOrder(order)">
+                            <i class="bi bi-x-circle me-1"></i> Cancel Order
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    ;
+
+private string GetStatusBadgeClass(string statusName)
+    {
+        return statusName switch
+        {
+            "Pending" => "bg-warning-subtle text-warning border border-warning",
+            "Confirmed" => "bg-primary-subtle text-primary border border-primary",
+            "Completed" => "bg-success-subtle text-success border border-success",
+            "Cancelled" => "bg-danger-subtle text-danger border border-danger",
+            _ => "bg-secondary text-white"
+        };
+    }
+
+}
