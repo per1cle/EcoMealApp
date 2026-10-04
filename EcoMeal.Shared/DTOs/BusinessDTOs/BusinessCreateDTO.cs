@@ -29,5 +29,8 @@ public class BusinessCreateDTO
     [Required(ErrorMessage = "Business type is required.")]
     public Guid BusinessTypeId { get; set; }
 
+    public bool IsApproved { get; set; } = false;
 
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }

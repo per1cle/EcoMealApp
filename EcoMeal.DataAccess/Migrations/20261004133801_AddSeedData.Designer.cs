@@ -4,6 +4,7 @@ using EcoMeal.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EcoMeal.DataAccess.Migrations
 {
     [DbContext(typeof(EcoMealDbContext))]
-    partial class EcoMealDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261004133801_AddSeedData")]
+    partial class AddSeedData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -44,17 +47,6 @@ namespace EcoMeal.DataAccess.Migrations
                         .HasMaxLength(2147483647)
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsApproved")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
-
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -80,9 +72,6 @@ namespace EcoMeal.DataAccess.Migrations
                             BusinessTypeId = new Guid("11111111-1111-1111-1111-111111111111"),
                             Description = "A cozy place with sustainable and delicious food.",
                             ImageUrl = "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
-                            IsApproved = true,
-                            Latitude = 44.3185,
-                            Longitude = 23.799800000000001,
                             Name = "Green Bite Bistro",
                             UserId = new Guid("00000000-0000-0000-0000-000000000001")
                         },
@@ -93,9 +82,6 @@ namespace EcoMeal.DataAccess.Migrations
                             BusinessTypeId = new Guid("22222222-2222-2222-2222-222222222222"),
                             Description = "Your local supermarket for fresh produce and essentials.",
                             ImageUrl = "https://images.unsplash.com/photo-1586201375761-83865001e3b6",
-                            IsApproved = true,
-                            Latitude = 44.323500000000003,
-                            Longitude = 23.805,
                             Name = "FreshMart",
                             UserId = new Guid("00000000-0000-0000-0000-000000000002")
                         });

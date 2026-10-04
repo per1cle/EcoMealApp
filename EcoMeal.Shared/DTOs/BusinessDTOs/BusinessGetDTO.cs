@@ -9,5 +9,8 @@ public class BusinessGetDTO
     public string Address { get; set; } = null!;
     public string ImageUrl { get; set; } = null!;
     public Guid BusinessTypeId { get; set; }
+    public bool IsApproved { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }
 

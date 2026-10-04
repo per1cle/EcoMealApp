@@ -67,6 +67,9 @@ namespace EcoMeal.DataAccess.Configurations
             builder.Property(b => b.ImageUrl)
                 .IsRequired(false)
                 .HasMaxLength(int.MaxValue);
+            builder.Property(b => b.IsApproved)
+                .IsRequired()
+                .HasDefaultValue(false);
             builder.HasOne(b => b.User)
                 .WithOne()
                 .HasForeignKey<Business>(b => b.UserId).OnDelete(DeleteBehavior.NoAction);

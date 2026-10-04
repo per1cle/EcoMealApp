@@ -31,6 +31,18 @@ public class OrderController(IOrderService orderService) : ControllerBase
             var order = await orderService.AddOrderAsync(orderCreateDTO);
             return CreatedAtAction(nameof(GetOrders), new { id = order.Id }, order);
         }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
         catch (Exception ex)
         {
             return StatusCode(500, "An error occurred while adding the order: " + ex.Message);

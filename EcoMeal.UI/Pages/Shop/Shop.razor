@@ -5,11 +5,29 @@
 @using EcoMeal.Shared.DTOs.OrderPackageDTOs
 @inject HttpClient Http
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <PageTitle>Shop</PageTitle>
 
 <div class="container mt-4">
-    <h1 class="mb-4">Discover Local Vendors</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="mb-1 fw-bold text-success"><i class="bi bi-shop me-2"></i>Discover Local Vendors</h1>
+            <p class="text-muted mb-0">Rescue fresh, delicious surplus food from partner vendors near you.</p>
+        </div>
+
+        <div class="btn-group shadow-sm" role="group" aria-label="View toggle">
+            <button type="button" class="btn @(!showMapView ? "btn-success" : "btn-outline-success") fw-semibold px-3"
+                    @onclick="() => SetViewMode(false)">
+                <i class="bi bi-grid-fill me-2"></i>Vendor List
+            </button>
+            <button type="button" class="btn @(showMapView ? "btn-success" : "btn-outline-success") fw-semibold px-3"
+                    @onclick="() => SetViewMode(true)">
+                <i class="bi bi-map-fill me-2"></i>Interactive Map
+            </button>
+        </div>
+    </div>
 
     @if (isLoading)
     {
@@ -21,42 +39,59 @@
     }
     else if (!businesses.Any())
     {
-        <div class="alert alert-info">No vendors found at the moment.</div>
+        <div class="alert alert-info">No approved partner vendors found at the moment.</div>
     }
     else
     {
-        <div class="row row-cols-1 row-cols-md-3 g-4">
-            @foreach (var b in businesses)
-            {
-                <div class="col">
-                    <Card Class="h-100 shadow-sm border-0">
-                        <img src="@b.ImageUrl" alt="@b.Name" class="card-img-top" style="height: 200px; object-fit: cover;" />
+        <!-- Map View Container -->
+        <div class="card shadow-sm border-0 rounded-4 overflow-hidden mb-4 @(showMapView ? "" : "d-none")">
+            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                <div class="fw-bold text-dark">
+                    <i class="bi bi-geo-alt-fill text-danger me-2"></i>Vendors on Map
+                </div>
+                <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill fw-semibold">
+                    @businesses.Count(b => b.Latitude.HasValue && b.Longitude.HasValue) vendors located
+                </span>
+            </div>
+            <div id="shopMap" style="height: 520px; width: 100%;"></div>
+        </div>
 
-                        <CardBody Class="d-flex flex-column">
-                            <div class="mb-2">
-                                <CardTitle Class="mb-1 fw-bold fs-5">@b.Name</CardTitle>
-                            </div>
+        <!-- Grid Cards View Container -->
+        @if (!showMapView)
+        {
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                @foreach (var b in businesses)
+                {
+                    <div class="col">
+                        <Card Class="h-100 shadow-sm border-0 rounded-4 overflow-hidden">
+                            <img src="@b.ImageUrl" alt="@b.Name" class="card-img-top" style="height: 200px; object-fit: cover;" />
 
-                            <CardText Class="text-muted small mb-3">
-                                @b.Description
-                            </CardText>
-
-                            <div class="mt-auto pt-3 border-top">
-                                <div class="d-flex align-items-center mb-3 text-secondary" style="font-size: 0.875rem;">
-                                    <i class="bi bi-geo-alt-fill text-danger me-2"></i>
-                                    <span class="text-truncate" title="@b.Address">@b.Address</span>
+                            <CardBody Class="d-flex flex-column">
+                                <div class="mb-2">
+                                    <CardTitle Class="mb-1 fw-bold fs-5">@b.Name</CardTitle>
                                 </div>
 
-                                <button class="btn btn-outline-success w-100 fw-bold shadow-sm"
-                                        @onclick="() => OpenPackagesPopup(b)">
-                                    <i class="bi bi-shop me-2"></i> View Packages
-                                </button>
-                            </div>
-                        </CardBody>
-                    </Card>
-                </div>
-            }
-        </div>
+                                <CardText Class="text-muted small mb-3">
+                                    @b.Description
+                                </CardText>
+
+                                <div class="mt-auto pt-3 border-top">
+                                    <div class="d-flex align-items-center mb-3 text-secondary" style="font-size: 0.875rem;">
+                                        <i class="bi bi-geo-alt-fill text-danger me-2"></i>
+                                        <span class="text-truncate" title="@b.Address">@b.Address</span>
+                                    </div>
+
+                                    <button class="btn btn-outline-success w-100 fw-bold shadow-sm"
+                                            @onclick="() => OpenPackagesPopup(b)">
+                                        <i class="bi bi-bag-plus me-2"></i> View Packages
+                                    </button>
+                                </div>
+                            </CardBody>
+                        </Card>
+                    </div>
+                }
+            </div>
+        }
     }
 </div>
 
@@ -70,7 +105,28 @@
             <h5 class="offcanvas-title fw-bold">Packages - @selectedBusiness?.Name</h5>
             <button type="button" class="btn-close" @onclick="ClosePopup" aria-label="Close"></button>
         </div>
-        <div class="offcanvas-body">
+        <div class="offcanvas-body d-flex flex-column">
+            @if (!string.IsNullOrEmpty(orderErrorMessage))
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-octagon-fill me-2"></i>@orderErrorMessage
+                    <button type="button" class="btn-close" @onclick="() => orderErrorMessage = null" aria-label="Close"></button>
+                </div>
+            }
+
+            @if (HasCartFromAnotherBusiness)
+            {
+                <div class="alert alert-warning d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Your cart contains items from another vendor. You cannot mix packages from different restaurants in one order.
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger ms-3" @onclick="ClearCart">
+                        <i class="bi bi-trash me-1"></i>Clear Cart
+                    </button>
+                </div>
+            }
+
             @if (isLoadingPackages)
             {
                 <div class="d-flex justify-content-center my-4">
@@ -83,7 +139,7 @@
             }
             else
             {
-                <div class="list-group">
+                <div class="list-group mb-3">
                     @foreach (var package in packages)
                     {
                         <div
@@ -129,7 +185,8 @@
                                     @if (cartItem == null)
                                     {
                                         <button class="btn btn-success fw-bold px-4" @onclick="() => AddToCart(package)"
-                                                disabled="@(package.Quantity <= 0)">
+                                                disabled="@(package.Quantity <= 0 || HasCartFromAnotherBusiness)"
+                                                title="@(HasCartFromAnotherBusiness ? "Cannot add items from a different restaurant" : "")">
                                             @(package.Quantity <= 0 ? "Epuizat" : "Add")
                                         </button>
                                     }
@@ -162,7 +219,7 @@
                         </div>
                     }
                 </div>
-                @if (cart.Any())
+                @if (cart.Any() && !HasCartFromAnotherBusiness)
                 {
                     <div class="card bg-light border-0 shadow-sm mt-auto">
                         <div class="card-body">
@@ -172,16 +229,16 @@
                                 {
                                     <li class="list-group-item d-flex justify-content-between align-items-center">
                                         <span>@item.Package.Name (@item.Quantity)</span>
-                                        <span class="fw-bold">@((item.Package.Price * item.Quantity)) RON</span>
+                                        <span class="fw-bold">@((item.Package.Price * item.Quantity).ToString("0.00")) RON</span>
                                     </li>
                                 }
                             </ul>
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <span class="fw-bold">Total:</span>
-                                <span class="fw-bold">@((cart.Sum(item => item.Package.Price * item.Quantity))) RON</span>
+                                <span class="fw-bold">@((cart.Sum(item => item.Package.Price * item.Quantity)).ToString("0.00")) RON</span>
                             </div>
-                            <button class="btn btn-success w-100 fw-bold mt-2" @onclick="SubmitOrder">
-                                Place Order
+                            <button class="btn btn-success w-100 fw-bold mt-2" @onclick="SubmitOrder" disabled="@isSubmitting">
+                                @(isSubmitting ? "Placing Order..." : "Place Order")
                             </button>
                         </div>
                     </div>
@@ -271,12 +328,14 @@
     private string? lastBusinessAddress;
     private int lastOrderNumber;
     private List<CartItem> lastOrderItems = new();
-    private double lastOrderTotal;
+    private decimal lastOrderTotal;
 
     private bool isPopupVisible = false;
     private BusinessGetDTO? selectedBusiness;
     private List<PackageGetDTO> packages = new();
     private bool isLoadingPackages = false;
+    private string? orderErrorMessage;
+    private bool isSubmitting = false;
 
     public class CartItem
     {
@@ -284,14 +343,27 @@
         public int Quantity { get; set; }
     }
 
-    List<CartItem> cart = new List<CartItem>();
+    private List<CartItem> cart = new List<CartItem>();
+
+    private bool HasCartFromAnotherBusiness =>
+        cart.Any() && selectedBusiness != null && cart.Any(c => c.Package.BusinessId != selectedBusiness.Id);
 
     private void AddToCart(PackageGetDTO package)
     {
+        orderErrorMessage = null;
+        if (HasCartFromAnotherBusiness)
+        {
+            orderErrorMessage = "You already have packages from a different restaurant in your cart. You cannot mix restaurants in the same order.";
+            return;
+        }
+
         var existingItem = cart.FirstOrDefault(c => c.Package.Id == package.Id);
         if (existingItem != null)
         {
-            existingItem.Quantity++;
+            if (existingItem.Quantity < package.Quantity)
+            {
+                existingItem.Quantity++;
+            }
         }
         else
         {
@@ -301,21 +373,28 @@
 
     private void UpdateQuantity(CartItem item, int delta)
     {
+        orderErrorMessage = null;
         item.Quantity += delta;
         if (item.Quantity <= 0) cart.Remove(item);
+    }
+
+    private void ClearCart()
+    {
+        cart.Clear();
+        orderErrorMessage = null;
     }
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
-        currentUserId = user.Identity?.IsAuthenticated == true ? Guid.Parse(user.FindFirst(System.Security.Claims.ClaimTypes.
-  NameIdentifier)?.Value ?? Guid.Empty.ToString()) : Guid.Empty;
+        currentUserId = user.Identity?.IsAuthenticated == true ? Guid.Parse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString()) : Guid.Empty;
 
         isLoading = true;
         try
         {
-            businesses = await Http.GetFromJsonAsync<List<BusinessGetDTO>>("api/businesses") ?? new List<BusinessGetDTO>();
+            var allBusinesses = await Http.GetFromJsonAsync<List<BusinessGetDTO>>("api/businesses") ?? new List<BusinessGetDTO>();
+            businesses = allBusinesses.Where(b => b.IsApproved).ToList();
         }
         catch (Exception ex)
         {
@@ -329,6 +408,7 @@
 
     private async Task OpenPackagesPopup(BusinessGetDTO business)
     {
+        orderErrorMessage = null;
         selectedBusiness = business;
         isPopupVisible = true;
         isLoadingPackages = true;
@@ -337,7 +417,6 @@
         {
             packages = await Http.GetFromJsonAsync<List<PackageGetDTO>>($"api/packages") ?? new();
             packages = packages.Where(p => p.BusinessId == business.Id).ToList();
-
         }
         catch (Exception ex)
         {
@@ -354,11 +433,33 @@
         isPopupVisible = false;
         selectedBusiness = null;
         packages.Clear();
+        orderErrorMessage = null;
     }
 
     private async Task SubmitOrder()
     {
-        if (cart.Any() && selectedBusiness != null)
+        orderErrorMessage = null;
+
+        if (currentUserId == Guid.Empty)
+        {
+            orderErrorMessage = "Please log in to place an order.";
+            return;
+        }
+
+        if (!cart.Any() || selectedBusiness == null)
+        {
+            orderErrorMessage = "Your cart is empty.";
+            return;
+        }
+
+        if (HasCartFromAnotherBusiness)
+        {
+            orderErrorMessage = "Cannot place order: Cart contains items from multiple restaurants.";
+            return;
+        }
+
+        isSubmitting = true;
+        try
         {
             var orderDto = new OrderCreateDTO
             {
@@ -380,24 +481,87 @@
                 lastBusinessAddress = selectedBusiness.Address;
                 lastOrderNumber = orderDto.OrderNumber;
                 lastOrderItems = new List<CartItem>(cart);
-                lastOrderTotal = cart.Sum(item => item.Quantity * (int)item.Package.Price);
+                lastOrderTotal = cart.Sum(item => item.Quantity * item.Package.Price);
 
                 cart.Clear();
                 isPopupVisible = false;
                 showSuccessPopup = true;
-                StateHasChanged();
-
             }
             else
             {
-                Console.WriteLine("Eroare la plasarea comenzii");
+                var errorText = await response.Content.ReadAsStringAsync();
+                orderErrorMessage = !string.IsNullOrWhiteSpace(errorText)
+                    ? errorText
+                    : $"Failed to place order (Status {response.StatusCode}).";
+            }
+        }
+        catch (Exception ex)
+        {
+            orderErrorMessage = $"Error submitting order: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private bool showMapView = false;
+    private DotNetObjectReference<Shop>? dotNetHelper;
+
+    private async Task SetViewMode(bool mapView)
+    {
+        showMapView = mapView;
+        if (showMapView)
+        {
+            await Task.Delay(100);
+            await InitOrUpdateMap();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetHelper = DotNetObjectReference.Create(this);
+        }
+
+        if (showMapView && !isLoading && businesses.Any())
+        {
+            await InitOrUpdateMap();
+        }
+    }
+
+    private async Task InitOrUpdateMap()
+    {
+        try
+        {
+            if (dotNetHelper != null)
+            {
+                await JS.InvokeVoidAsync("leafletMap.initMap", "shopMap", businesses, dotNetHelper);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing map: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public async Task SelectBusinessFromMap(string businessIdString)
+    {
+        if (Guid.TryParse(businessIdString, out var businessId))
+        {
+            var business = businesses.FirstOrDefault(b => b.Id == businessId);
+            if (business != null)
+            {
+                await OpenPackagesPopup(business);
+                await InvokeAsync(StateHasChanged);
             }
         }
     }
 
-    private async Task<int> Total()
+    public async ValueTask DisposeAsync()
     {
-        return cart.Sum(item => item.Quantity * (int)item.Package.Price);
+        dotNetHelper?.Dispose();
     }
-
 }

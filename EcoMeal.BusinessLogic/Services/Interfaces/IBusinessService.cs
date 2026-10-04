@@ -8,4 +8,5 @@ public interface IBusinessService
     Task<BusinessGetDTO> UpdateBusinessAsync(Guid id, BusinessUpdateDTO businessUpdateDTO);
     Task<BusinessGetDTO> AddBusinessAsync(BusinessCreateDTO businessCreateDTO);
     Task<BusinessGetDTO?> GetMyBusinessAsync(Guid userId);
+    Task<BusinessGetDTO> SetApprovalStatusAsync(Guid id, bool isApproved);
 }

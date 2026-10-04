@@ -1,4 +1,4 @@
-﻿@page "/admin/businesses"
+@page "/admin/businesses"
 @using EcoMeal.Shared.DTOs.BusinessDTOs
 @using EcoMeal.Shared.DTOs.BusinessTypeDTOs
 @using Microsoft.AspNetCore.Authorization
@@ -10,10 +10,33 @@
 
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Business Management</h1>
-        <button class="btn btn-primary shadow-sm" @onclick="() => ShowPopup(new BusinessGetDTO())">
+        <div>
+            <h1 class="fw-bold mb-0">Business Management</h1>
+            <p class="text-muted">Review, approve, edit, and manage all businesses.</p>
+        </div>
+        <button class="btn btn-primary shadow-sm fw-bold" @onclick="() => ShowPopup(new BusinessGetDTO())">
             <i class="bi bi-plus-lg me-2"></i> Add New Business
         </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i>@errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Approval Filter Pills -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        @foreach (var filter in new[] { "All", "Approved", "Pending Approval" })
+        {
+            var count = filter == "All" ? businesses.Count : (filter == "Approved" ? businesses.Count(b => b.IsApproved) : businesses.Count(b => !b.IsApproved));
+            <button class="btn btn-sm @(selectedApprovalFilter == filter ? "btn-primary fw-bold" : "btn-outline-secondary")"
+                    @onclick="() => selectedApprovalFilter = filter">
+                @filter (@count)
+            </button>
+        }
     </div>
 
     @if (isLoading)
@@ -26,59 +49,94 @@
     }
     else
     {
+        var filteredBusinesses = businesses.Where(b =>
+            selectedApprovalFilter == "All" ||
+            (selectedApprovalFilter == "Approved" && b.IsApproved) ||
+            (selectedApprovalFilter == "Pending Approval" && !b.IsApproved)
+        ).ToList();
+
         <div class="card shadow-sm border-0">
             <div class="card-body p-0">
-                <table class="table table-hover table-striped mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Image</th>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Address</th>
-                            <th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var b in businesses)
-                        {
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle mb-0">
+                        <thead class="table-light">
                             <tr>
-                                <td style="width: 80px;">
-                                    @if (!string.IsNullOrWhiteSpace(b.ImageUrl))
-                                    {
-                                        <img src="@b.ImageUrl" alt="img" class="rounded"
-                                             style="width: 50px; height: 50px; object-fit: cover;" />
-                                    }
-                                    else
-                                    {
-                                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center"
-                                             style="width: 50px; height: 50px;">
-                                            <i class="bi bi-shop"></i>
-                                        </div>
-                                    }
-                                </td>
-                                <td class="align-middle fw-bold">@b.Name</td>
-                                <td class="align-middle text-muted">
-                                    @(businessTypes.FirstOrDefault(bt => bt.Id == b.BusinessTypeId)?.Name ?? "Unknown")
-                                </td>
-                                <td class="align-middle">@b.Address</td>
-                                <td class="align-middle text-end">
-                                    <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => ShowPopup(b)">
-                                        <i class="bi bi-pencil-square"></i> Edit
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBusiness(b.Id)">
-                                        <i class="bi bi-trash"></i> Delete
-                                    </button>
-                                </td>
+                                <th>Image</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Address</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
                             </tr>
-                        }
-                        @if (!businesses.Any())
-                        {
-                            <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">No businesses found.</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach (var b in filteredBusinesses)
+                            {
+                                <tr>
+                                    <td style="width: 80px;">
+                                        @if (!string.IsNullOrWhiteSpace(b.ImageUrl))
+                                        {
+                                            <img src="@b.ImageUrl" alt="img" class="rounded"
+                                                 style="width: 50px; height: 50px; object-fit: cover;" />
+                                        }
+                                        else
+                                        {
+                                            <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center"
+                                                 style="width: 50px; height: 50px;">
+                                                <i class="bi bi-shop"></i>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="fw-bold">@b.Name</td>
+                                    <td class="text-muted">
+                                        @(businessTypes.FirstOrDefault(bt => bt.Id == b.BusinessTypeId)?.Name ?? "Unknown")
+                                    </td>
+                                    <td>@b.Address</td>
+                                    <td>
+                                        @if (b.IsApproved)
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success px-3 py-2 rounded-pill fw-semibold">
+                                                <i class="bi bi-check-circle-fill me-1"></i>Approved
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning-subtle text-warning border border-warning px-3 py-2 rounded-pill fw-semibold">
+                                                <i class="bi bi-hourglass-split me-1"></i>Pending Approval
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        @if (!b.IsApproved)
+                                        {
+                                            <button class="btn btn-sm btn-success me-2 fw-bold" @onclick="() => ToggleApproval(b, true)">
+                                                <i class="bi bi-check-lg me-1"></i> Approve
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-warning me-2" @onclick="() => ToggleApproval(b, false)">
+                                                <i class="bi bi-x-circle me-1"></i> Revoke
+                                            </button>
+                                        }
+                                        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => ShowPopup(b)">
+                                            <i class="bi bi-pencil-square"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBusiness(b.Id)">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                            @if (!filteredBusinesses.Any())
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No businesses found.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     }
@@ -127,11 +185,29 @@
                             <ValidationMessage For="@(() => editModel.Address)" />
                         </div>
 
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Latitude</label>
+                                <InputNumber @bind-Value="editModel.Latitude" class="form-control" placeholder="44.3302" step="0.0001" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Longitude</label>
+                                <InputNumber @bind-Value="editModel.Longitude" class="form-control" placeholder="23.7949" step="0.0001" />
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label fw-bold">Description</label>
                             <InputTextArea @bind-Value="editModel.Description" class="form-control" rows="3"
                                            placeholder="Optional description..." />
                             <ValidationMessage For="@(() => editModel.Description)" />
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <InputCheckbox @bind-Value="editModel.IsApproved" class="form-check-input" id="isApprovedCheck" />
+                            <label class="form-check-label fw-bold" for="isApprovedCheck">
+                                Approved (Visible in Shop)
+                            </label>
                         </div>
 
                         <div class="mb-3">
@@ -158,31 +234,30 @@
                             </div>
 
                             <ValidationMessage For="@(() => editModel.ImageUrl)" />
-                            <small class="text-muted">You can either paste a direct link or upload an image from your device
-                                (Max 5MB).</small>
-                            </div>
+                            <small class="text-muted">You can either paste a direct link or upload an image from your device (Max 5MB).</small>
                         </div>
+                    </div>
 
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" @onclick="ClosePopup">Cancel</button>
-                            <button type="submit" class="btn btn-success fw-bold" disabled="@isSaving">
-                                @if (isSaving)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                    <span>Saving...</span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-check-lg me-1"></i> <span>Save</span>
-                                }
-                            </button>
-                        </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="ClosePopup">Cancel</button>
+                        <button type="submit" class="btn btn-success fw-bold" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-lg me-1"></i> <span>Save</span>
+                            }
+                        </button>
+                    </div>
 
-                    </EditForm>
-                </div>
+                </EditForm>
             </div>
         </div>
-    }
+    </div>
+}
 
 @code {
     private List<BusinessGetDTO> businesses = new List<BusinessGetDTO>();
@@ -193,6 +268,8 @@
     private bool isPopupVisible = false;
     private bool isLoading = true;
     private bool isSaving = false;
+    private string? errorMessage;
+    private string selectedApprovalFilter = "All";
 
     private bool isNew => editModel?.Id == Guid.Empty;
 
@@ -206,19 +283,40 @@
     private async Task LoadDataAsync()
     {
         isLoading = true;
+        errorMessage = null;
         try
         {
-            businessTypes = await Http.GetFromJsonAsync<List<BusinessTypeGetDTO>>("api/businesstypes") ?? new
-List<BusinessTypeGetDTO>();
+            businessTypes = await Http.GetFromJsonAsync<List<BusinessTypeGetDTO>>("api/businesstypes") ?? new List<BusinessTypeGetDTO>();
             businesses = await Http.GetFromJsonAsync<List<BusinessGetDTO>>("api/businesses") ?? new List<BusinessGetDTO>();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading data: {ex.Message}");
+            errorMessage = $"Error loading data: {ex.Message}";
         }
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task ToggleApproval(BusinessGetDTO b, bool approve)
+    {
+        errorMessage = null;
+        try
+        {
+            var response = await Http.PutAsync($"api/businesses/{b.Id}/approve?isApproved={approve}", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadDataAsync();
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating approval: {ex.Message}";
         }
     }
 
@@ -227,11 +325,15 @@ List<BusinessTypeGetDTO>();
         editModel = new BusinessUpdateDTO
         {
             Id = b.Id,
+            UserId = b.UserId,
             Name = b.Name,
             Address = b.Address,
             Description = b.Description,
             ImageUrl = b.ImageUrl,
-            BusinessTypeId = b.BusinessTypeId
+            BusinessTypeId = b.BusinessTypeId,
+            IsApproved = b.IsApproved,
+            Latitude = b.Latitude,
+            Longitude = b.Longitude
         };
 
         isPopupVisible = true;
@@ -265,7 +367,7 @@ List<BusinessTypeGetDTO>();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error uploading file: {ex.Message}");
+                errorMessage = $"Error uploading file: {ex.Message}";
             }
         }
     }
@@ -288,6 +390,7 @@ List<BusinessTypeGetDTO>();
             editModel.ImageUrl = editModel.ImageUrl.Trim();
 
         isSaving = true;
+        errorMessage = null;
         try
         {
             if (isNew)
@@ -298,14 +401,27 @@ List<BusinessTypeGetDTO>();
                     Address = editModel.Address,
                     Description = editModel.Description,
                     ImageUrl = editModel.ImageUrl,
-                    BusinessTypeId = editModel.BusinessTypeId
+                    BusinessTypeId = editModel.BusinessTypeId,
+                    IsApproved = editModel.IsApproved,
+                    Latitude = editModel.Latitude,
+                    Longitude = editModel.Longitude
                 };
 
-                await Http.PostAsJsonAsync("api/businesses/create", createDto);
+                var response = await Http.PostAsJsonAsync("api/businesses/create", createDto);
+                if (!response.IsSuccessStatusCode)
+                {
+                    errorMessage = await response.Content.ReadAsStringAsync();
+                    return;
+                }
             }
             else
             {
-                await Http.PutAsJsonAsync($"api/businesses/{editModel.Id}", editModel);
+                var response = await Http.PutAsJsonAsync($"api/businesses/{editModel.Id}", editModel);
+                if (!response.IsSuccessStatusCode)
+                {
+                    errorMessage = await response.Content.ReadAsStringAsync();
+                    return;
+                }
             }
 
             await LoadDataAsync();
@@ -313,7 +429,7 @@ List<BusinessTypeGetDTO>();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error saving data: {ex.Message}");
+            errorMessage = $"Error saving data: {ex.Message}";
         }
         finally
         {
@@ -323,6 +439,7 @@ List<BusinessTypeGetDTO>();
 
     private async Task DeleteBusiness(Guid id)
     {
+        errorMessage = null;
         try
         {
             var response = await Http.DeleteAsync($"api/businesses/{id}");
@@ -330,10 +447,14 @@ List<BusinessTypeGetDTO>();
             {
                 await LoadDataAsync();
             }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error deleting data: {ex.Message}");
+            errorMessage = $"Error deleting data: {ex.Message}";
         }
     }
 }

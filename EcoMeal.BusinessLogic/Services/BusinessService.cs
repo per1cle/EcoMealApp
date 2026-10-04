@@ -20,7 +20,10 @@ public class BusinessService(IRepository<Business> businessRepository) : IBusine
             Description = businessCreateDTO.Description,
             Address = businessCreateDTO.Address,
             ImageUrl = businessCreateDTO.ImageUrl,
-            BusinessTypeId = businessCreateDTO.BusinessTypeId
+            BusinessTypeId = businessCreateDTO.BusinessTypeId,
+            IsApproved = businessCreateDTO.IsApproved,
+            Latitude = businessCreateDTO.Latitude,
+            Longitude = businessCreateDTO.Longitude
         };
 
         var addedBusiness = await businessRepository.AddAsync(business);
@@ -36,7 +39,18 @@ public class BusinessService(IRepository<Business> businessRepository) : IBusine
         business.Address = businessUpdateDTO.Address;
         business.ImageUrl = businessUpdateDTO.ImageUrl;
         business.BusinessTypeId = businessUpdateDTO.BusinessTypeId;
+        business.IsApproved = businessUpdateDTO.IsApproved;
+        business.Latitude = businessUpdateDTO.Latitude;
+        business.Longitude = businessUpdateDTO.Longitude;
 
+        var updatedBusiness = await businessRepository.UpdateAsync(business);
+        return MaptoBusinessGetDTO(updatedBusiness);
+    }
+
+    public async Task<BusinessGetDTO> SetApprovalStatusAsync(Guid id, bool isApproved)
+    {
+        var business = await businessRepository.GetByIdAsync(id) ?? throw new KeyNotFoundException($"Business with ID {id} not found.");
+        business.IsApproved = isApproved;
         var updatedBusiness = await businessRepository.UpdateAsync(business);
         return MaptoBusinessGetDTO(updatedBusiness);
     }
@@ -57,6 +71,7 @@ public class BusinessService(IRepository<Business> businessRepository) : IBusine
         }
         return MaptoBusinessGetDTO(myBusiness);
     }
+
     private static BusinessGetDTO MaptoBusinessGetDTO(Business business)
     {
         return new BusinessGetDTO
@@ -67,7 +82,10 @@ public class BusinessService(IRepository<Business> businessRepository) : IBusine
             Description = business.Description ?? string.Empty,
             Address = business.Address ?? string.Empty,
             ImageUrl = business.ImageUrl ?? string.Empty,
-            BusinessTypeId = business.BusinessTypeId
+            BusinessTypeId = business.BusinessTypeId,
+            IsApproved = business.IsApproved,
+            Latitude = business.Latitude,
+            Longitude = business.Longitude
         };
     }
 }

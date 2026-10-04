@@ -93,7 +93,6 @@ public class BusinessController(IBusinessService businessService) : ControllerBa
         {
             return StatusCode(500, $"An error occurred: {ex.Message}");
         }
-
     }
 
     [HttpPost("my-business")]
@@ -104,8 +103,28 @@ public class BusinessController(IBusinessService businessService) : ControllerBa
         if (!Guid.TryParse(userIdString, out Guid userId)) return Unauthorized();
 
         dto.UserId = userId;
+        dto.IsApproved = false; // Always requires admin approval
 
         var createdBusiness = await businessService.AddBusinessAsync(dto);
         return Ok(createdBusiness);
+    }
+
+    [HttpPut("{id}/approve")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<BusinessGetDTO>> SetApprovalStatus(Guid id, [FromQuery] bool isApproved = true)
+    {
+        try
+        {
+            var business = await businessService.SetApprovalStatusAsync(id, isApproved);
+            return Ok(business);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred: {ex.Message}");
+        }
     }
 }

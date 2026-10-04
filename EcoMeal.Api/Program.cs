@@ -59,6 +59,9 @@ builder.Services.AddScoped<IRepository<PackageType>, BaseRepository<PackageType>
 builder.Services.AddScoped<IRepository<Order>, BaseRepository<Order>>();
 builder.Services.AddScoped<IRepository<OrderPackage>, BaseRepository<OrderPackage>>();
 
+builder.Services.Configure<EcoMeal.Shared.Settings.EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IBusinessService, BusinessService>();
 builder.Services.AddScoped<IBusinessTypeService, BusinessTypeService>();
 builder.Services.AddScoped<IPackageService, PackageService>();

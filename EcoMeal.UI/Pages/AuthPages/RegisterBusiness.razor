@@ -91,7 +91,7 @@
         isLoading = true;
         errorMessage = null;
 
-        // Aici apelăm metoda specială pentru business!
+        // Call register business method
         var result = await AuthService.RegisterBusiness(registerModel);
 
         if (result.IsSuccess)

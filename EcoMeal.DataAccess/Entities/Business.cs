@@ -11,6 +11,9 @@ public class Business
     public string? ImageUrl { get; set; }
     public Guid BusinessTypeId { get; set; }
     public BusinessType BusinessType { get; set; } = null!;
+    public bool IsApproved { get; set; } = false;
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
     public ICollection<Package> Packages { get; set; } = new List<Package>();
     public ICollection<Order> Orders { get; set; } = new List<Order>();
 }

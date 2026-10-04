@@ -5,9 +5,19 @@ using EcoMeal.Shared.DTOs.OrderDTOs;
 using EcoMeal.Shared.DTOs.OrderPackageDTOs;
 namespace EcoMeal.BusinessLogic.Services;
 
-public class OrderService(IRepository<Order> orderRepository, IRepository<OrderPackage> orderPackageRepository,
-IRepository<Business> businessRepository, IRepository<Package> packageRepository) : IOrderService
+public class OrderService(
+    IRepository<Order> orderRepository,
+    IRepository<OrderPackage> orderPackageRepository,
+    IRepository<Business> businessRepository,
+    IRepository<Package> packageRepository,
+    Microsoft.AspNetCore.Identity.UserManager<User> userManager,
+    IEmailService emailService) : IOrderService
 {
+    private static readonly Guid PendingStatusId = Guid.Parse("E2712CD8-CD80-4F27-9711-C676F84E339C");
+    private static readonly Guid ConfirmedStatusId = Guid.Parse("45B77ECA-EFE4-4A2E-867D-7EB6170D3703");
+    private static readonly Guid CompletedStatusId = Guid.Parse("24FEB601-B7FA-4E23-AA03-F121FAD19347");
+    private static readonly Guid CancelledStatusId = Guid.Parse("224F9B84-E878-4B04-BFB9-6BC6B3EBA8DD");
+
     public async Task<List<OrderGetDTO>> GetAllOrdersAsync()
     {
         var orders = await orderRepository.GetAllAsync();
@@ -43,39 +53,64 @@ IRepository<Business> businessRepository, IRepository<Package> packageRepository
     }
     public async Task<OrderGetDTO> AddOrderAsync(OrderCreateDTO orderCreateDTO)
     {
-        var pendingStatusId = Guid.Parse("E2712CD8-CD80-4F27-9711-C676F84E339C");
+        if (orderCreateDTO.OrderPackages == null || !orderCreateDTO.OrderPackages.Any())
+        {
+            throw new InvalidOperationException("An order must contain at least one package.");
+        }
+
+        var business = await businessRepository.GetByIdAsync(orderCreateDTO.BusinessId)
+            ?? throw new KeyNotFoundException($"Business with ID {orderCreateDTO.BusinessId} not found.");
+
+        // Validate all packages belong to the specified business and have enough quantity
+        var packagesToUpdate = new List<(Package Package, int Quantity)>();
+        foreach (var orderPackageDTO in orderCreateDTO.OrderPackages)
+        {
+            if (orderPackageDTO.Quantity <= 0)
+            {
+                throw new InvalidOperationException("Package quantity must be greater than zero.");
+            }
+
+            var package = await packageRepository.GetByIdAsync(orderPackageDTO.PackageId)
+                ?? throw new KeyNotFoundException($"Package with ID {orderPackageDTO.PackageId} not found.");
+
+            if (package.BusinessId != orderCreateDTO.BusinessId)
+            {
+                throw new InvalidOperationException($"Package '{package.Name}' does not belong to business '{business.Name}'. An order cannot contain packages from different restaurants.");
+            }
+
+            if (package.Quantity < orderPackageDTO.Quantity)
+            {
+                throw new InvalidOperationException($"Not enough stock for package '{package.Name}'. Available: {package.Quantity}, requested: {orderPackageDTO.Quantity}.");
+            }
+
+            packagesToUpdate.Add((package, orderPackageDTO.Quantity));
+        }
+
         var order = new Order
         {
             UserId = orderCreateDTO.UserId,
             BusinessId = orderCreateDTO.BusinessId,
-            StatusId = pendingStatusId,
+            StatusId = PendingStatusId,
             OrderNumber = orderCreateDTO.OrderNumber
         };
 
         var addedOrder = await orderRepository.AddAsync(order);
 
-        if (orderCreateDTO.OrderPackages != null && orderCreateDTO.OrderPackages.Any())
+        foreach (var (package, quantity) in packagesToUpdate)
         {
-            foreach (var orderPackageDTO in orderCreateDTO.OrderPackages)
+            var orderPackage = new OrderPackage
             {
-                var orderPackage = new OrderPackage
-                {
-                    OrderId = addedOrder.Id,
-                    PackageId = orderPackageDTO.PackageId,
-                    Quantity = orderPackageDTO.Quantity
-                };
+                OrderId = addedOrder.Id,
+                PackageId = package.Id,
+                Quantity = quantity
+            };
 
-                await orderPackageRepository.AddAsync(orderPackage);
+            await orderPackageRepository.AddAsync(orderPackage);
 
-                var package = await packageRepository.GetByIdAsync(orderPackageDTO.PackageId);
-                if (package != null)
-                {
-                    package.Quantity -= orderPackageDTO.Quantity;
-                    if (package.Quantity < 0) package.Quantity = 0;
-                    await packageRepository.UpdateAsync(package);
-                }
-            }
+            package.Quantity -= quantity;
+            await packageRepository.UpdateAsync(package);
         }
+
         return MaptoOrderGetDTO(addedOrder);
     }
 
@@ -84,7 +119,7 @@ IRepository<Business> businessRepository, IRepository<Package> packageRepository
         var order = await orderRepository.GetByIdAsync(id) ?? throw new KeyNotFoundException($"Order with ID {id} not found.");
 
         var oldStatusId = order.StatusId;
-        var cancelledStatusId = Guid.Parse("224f9b84-e878-4b04-bfb9-6bc6b3eba8dd");
+        var newStatusId = orderUpdateDTO.StatusId;
 
         order.UserId = orderUpdateDTO.UserId;
         order.BusinessId = orderUpdateDTO.BusinessId;
@@ -93,8 +128,8 @@ IRepository<Business> businessRepository, IRepository<Package> packageRepository
 
         var updatedOrder = await orderRepository.UpdateAsync(order);
 
-        // Dacă statusul s-a schimbat în Cancelled, restabilim stocul produselor
-        if (orderUpdateDTO.StatusId == cancelledStatusId && oldStatusId != cancelledStatusId)
+        // If status changed to Cancelled, restore package stock
+        if (newStatusId == CancelledStatusId && oldStatusId != CancelledStatusId)
         {
             var orderPackages = await orderPackageRepository.GetAllAsync();
             var packagesToRestore = orderPackages.Where(op => op.OrderId == id).ToList();
@@ -104,9 +139,81 @@ IRepository<Business> businessRepository, IRepository<Package> packageRepository
                 var package = await packageRepository.GetByIdAsync(op.PackageId);
                 if (package != null)
                 {
-                    package.Quantity += op.Quantity; // Restabilim stocul
+                    package.Quantity += op.Quantity;
                     await packageRepository.UpdateAsync(package);
                 }
+            }
+        }
+
+        // Trigger emails if status changed
+        if (newStatusId != oldStatusId)
+        {
+            try
+            {
+                var customer = await userManager.FindByIdAsync(order.UserId.ToString());
+                var business = await businessRepository.GetByIdAsync(order.BusinessId);
+
+                if (customer != null && !string.IsNullOrWhiteSpace(customer.Email) && business != null)
+                {
+                    var customerName = !string.IsNullOrWhiteSpace(customer.Name)
+                        ? customer.Name
+                        : customer.UserName ?? "Client";
+
+                    var allOrderPackages = await orderPackageRepository.GetAllAsync();
+                    var thisOrderPackages = allOrderPackages.Where(op => op.OrderId == order.Id).ToList();
+                    var allPackages = await packageRepository.GetAllAsync();
+
+                    var itemsList = thisOrderPackages.Select(op =>
+                    {
+                        var pkg = allPackages.FirstOrDefault(p => p.Id == op.PackageId);
+                        return (
+                            PackageName: pkg?.Name ?? "EcoMeal Package",
+                            Quantity: op.Quantity,
+                            Price: pkg?.Price ?? 0m
+                        );
+                    }).ToList();
+
+                    var totalAmount = itemsList.Sum(i => i.Price * i.Quantity);
+
+                    if (newStatusId == ConfirmedStatusId)
+                    {
+                        await emailService.SendOrderConfirmedEmailAsync(
+                            customer.Email,
+                            customerName,
+                            order.OrderNumber,
+                            business.Name,
+                            business.Address ?? string.Empty,
+                            business.Latitude,
+                            business.Longitude,
+                            totalAmount,
+                            itemsList
+                        );
+                    }
+                    else if (newStatusId == CompletedStatusId)
+                    {
+                        await emailService.SendOrderCompletedEmailAsync(
+                            customer.Email,
+                            customerName,
+                            order.OrderNumber,
+                            business.Name,
+                            business.Address ?? string.Empty,
+                            totalAmount
+                        );
+                    }
+                    else if (newStatusId == CancelledStatusId)
+                    {
+                        await emailService.SendOrderCancelledEmailAsync(
+                            customer.Email,
+                            customerName,
+                            order.OrderNumber,
+                            business.Name
+                        );
+                    }
+                }
+            }
+            catch
+            {
+                // Email delivery failure should not break status update
             }
         }
 

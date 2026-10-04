@@ -30,5 +30,9 @@ public class BusinessUpdateDTO
 
     [Required(ErrorMessage = "Business type is required.")]
     public Guid BusinessTypeId { get; set; }
+
+    public bool IsApproved { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }
 

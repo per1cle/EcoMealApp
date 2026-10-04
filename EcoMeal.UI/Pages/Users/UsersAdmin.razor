@@ -1,0 +1,356 @@
+@page "/admin/users"
+@using EcoMeal.Shared.DTOs.UserDTOs
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@inject HttpClient Http
+
+<PageTitle>Admin - Users</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold mb-0">User Management</h1>
+            <p class="text-muted">Manage system users, view account details, and configure roles.</p>
+        </div>
+        <button class="btn btn-primary shadow-sm fw-bold" @onclick="ShowAddUserPopup">
+            <i class="bi bi-person-plus-fill me-2"></i> Add New User
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-octagon-fill me-2"></i>@errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Role Filter Pills -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        @foreach (var role in new[] { "All", "Admin", "Business", "Customer" })
+        {
+            var count = role == "All" ? users.Count : users.Count(u => u.Role.Equals(role, StringComparison.OrdinalIgnoreCase));
+            <button class="btn btn-sm @(selectedRoleFilter == role ? "btn-primary fw-bold" : "btn-outline-secondary")"
+                    @onclick="() => selectedRoleFilter = role">
+                @role (@count)
+            </button>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        var filteredUsers = selectedRoleFilter == "All"
+            ? users
+            : users.Where(u => u.Role.Equals(selectedRoleFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in filteredUsers)
+                            {
+                                <tr>
+                                    <td class="fw-bold">
+                                        <i class="bi bi-person-circle text-secondary me-2"></i>@user.Name
+                                    </td>
+                                    <td>@user.Email</td>
+                                    <td>
+                                        <span class="badge px-3 py-2 rounded-pill fw-semibold @GetRoleBadgeClass(user.Role)">
+                                            @user.Role
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => ShowEditUserPopup(user)">
+                                            <i class="bi bi-pencil-square"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(user.Id)">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                            @if (!filteredUsers.Any())
+                            {
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No users found.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (isAddPopupVisible && createModel != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-person-plus-fill me-2"></i>Add New User
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseAddPopup"></button>
+                </div>
+                <EditForm Model="@createModel" OnValidSubmit="SaveNewUser">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Full Name</label>
+                            <InputText @bind-Value="createModel.Name" class="form-control" placeholder="John Doe" />
+                            <ValidationMessage For="@(() => createModel.Name)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Email</label>
+                            <InputText @bind-Value="createModel.Email" class="form-control" placeholder="user@example.com" />
+                            <ValidationMessage For="@(() => createModel.Email)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Password</label>
+                            <InputText @bind-Value="createModel.Password" type="password" class="form-control" placeholder="Minimum 6 characters" />
+                            <ValidationMessage For="@(() => createModel.Password)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Role</label>
+                            <InputSelect @bind-Value="createModel.Role" class="form-select">
+                                <option value="Customer">Customer</option>
+                                <option value="Business">Business</option>
+                                <option value="Admin">Admin</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => createModel.Role)" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseAddPopup">Cancel</button>
+                        <button type="submit" class="btn btn-primary fw-bold" disabled="@isSaving">
+                            @(isSaving ? "Creating..." : "Create User")
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isEditPopupVisible && updateModel != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-pencil-square me-2"></i>Edit User
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseEditPopup"></button>
+                </div>
+                <EditForm Model="@updateModel" OnValidSubmit="SaveUpdatedUser">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Full Name</label>
+                            <InputText @bind-Value="updateModel.Name" class="form-control" />
+                            <ValidationMessage For="@(() => updateModel.Name)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Email</label>
+                            <InputText @bind-Value="updateModel.Email" class="form-control" />
+                            <ValidationMessage For="@(() => updateModel.Email)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Role</label>
+                            <InputSelect @bind-Value="updateModel.Role" class="form-select">
+                                <option value="Customer">Customer</option>
+                                <option value="Business">Business</option>
+                                <option value="Admin">Admin</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => updateModel.Role)" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">New Password (leave empty to keep current)</label>
+                            <InputText @bind-Value="updateModel.NewPassword" type="password" class="form-control" placeholder="Optional new password" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseEditPopup">Cancel</button>
+                        <button type="submit" class="btn btn-success fw-bold" disabled="@isSaving">
+                            @(isSaving ? "Saving..." : "Save Changes")
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UserGetDTO> users = new();
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? errorMessage;
+    private string selectedRoleFilter = "All";
+
+    private bool isAddPopupVisible = false;
+    private bool isEditPopupVisible = false;
+    private UserCreateDTO? createModel;
+    private UserUpdateDTO? updateModel;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            users = await Http.GetFromJsonAsync<List<UserGetDTO>>("api/users") ?? new();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading users: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowAddUserPopup()
+    {
+        createModel = new UserCreateDTO { Role = "Customer" };
+        isAddPopupVisible = true;
+    }
+
+    private void CloseAddPopup()
+    {
+        isAddPopupVisible = false;
+        createModel = null;
+    }
+
+    private void ShowEditUserPopup(UserGetDTO user)
+    {
+        updateModel = new UserUpdateDTO
+        {
+            Id = user.Id,
+            Name = user.Name,
+            Email = user.Email,
+            Role = user.Role
+        };
+        isEditPopupVisible = true;
+    }
+
+    private void CloseEditPopup()
+    {
+        isEditPopupVisible = false;
+        updateModel = null;
+    }
+
+    private async Task SaveNewUser()
+    {
+        if (createModel == null) return;
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/users", createModel);
+            if (response.IsSuccessStatusCode)
+            {
+                CloseAddPopup();
+                await LoadUsersAsync();
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error creating user: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task SaveUpdatedUser()
+    {
+        if (updateModel == null) return;
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/users/{updateModel.Id}", updateModel);
+            if (response.IsSuccessStatusCode)
+            {
+                CloseEditPopup();
+                await LoadUsersAsync();
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating user: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteUser(Guid id)
+    {
+        errorMessage = null;
+        try
+        {
+            var response = await Http.DeleteAsync($"api/users/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUsersAsync();
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting user: {ex.Message}";
+        }
+    }
+
+    private string GetRoleBadgeClass(string role)
+    {
+        return role.ToLower() switch
+        {
+            "admin" => "bg-danger text-white",
+            "business" => "bg-warning text-dark",
+            "customer" => "bg-success text-white",
+            _ => "bg-secondary text-white"
+        };
+    }
+}
