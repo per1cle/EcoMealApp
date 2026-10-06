@@ -223,6 +223,29 @@ public class OrderService(
     public async Task DeleteOrderAsync(Guid id)
     {
         var order = await orderRepository.GetByIdAsync(id) ?? throw new KeyNotFoundException($"Order with ID {id} not found.");
+
+        var allOrderPackages = await orderPackageRepository.GetAllAsync();
+        var packagesToDelete = allOrderPackages.Where(op => op.OrderId == id).ToList();
+
+        // Restore package stock if order was not cancelled or completed
+        if (order.StatusId != CancelledStatusId && order.StatusId != CompletedStatusId)
+        {
+            foreach (var op in packagesToDelete)
+            {
+                var package = await packageRepository.GetByIdAsync(op.PackageId);
+                if (package != null)
+                {
+                    package.Quantity += op.Quantity;
+                    await packageRepository.UpdateAsync(package);
+                }
+            }
+        }
+
+        foreach (var op in packagesToDelete)
+        {
+            await orderPackageRepository.DeleteAsync(op);
+        }
+
         await orderRepository.DeleteAsync(order);
     }
 

@@ -5,6 +5,8 @@
 @attribute [Authorize(Roles = "Admin")]
 @using System.IO
 @inject HttpClient Http
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <PageTitle>Admin - Businesses</PageTitle>
 
@@ -180,19 +182,53 @@
 
                         <div class="mb-3">
                             <label class="form-label fw-bold">Address</label>
-                            <InputText @bind-Value="editModel.Address" class="form-control"
-                                       placeholder="Street name and number..." />
+                            <div class="input-group">
+                                <InputText @bind-Value="editModel.Address" class="form-control"
+                                           placeholder="Street name, number, city (e.g. Str. Victoriei 10, Craiova)..." />
+                                <button type="button" class="btn btn-outline-success fw-semibold" @onclick="LocateAddress" disabled="@isLocating">
+                                    @if (isLocating)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                        <span>Locating...</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-geo-alt-fill me-1"></i>
+                                        <span>Locate on Map</span>
+                                    }
+                                </button>
+                            </div>
                             <ValidationMessage For="@(() => editModel.Address)" />
+                            @if (!string.IsNullOrEmpty(locationSearchMessage))
+                            {
+                                <div class="alert alert-warning py-1 px-2 mt-2 small mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>@locationSearchMessage
+                                </div>
+                            }
                         </div>
 
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Latitude</label>
-                                <InputNumber @bind-Value="editModel.Latitude" class="form-control" placeholder="44.3302" step="0.0001" />
+                        <!-- Interactive Mini Map Picker -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label fw-bold mb-0 small text-muted">
+                                    <i class="bi bi-map me-1"></i>Store Location on Map:
+                                </label>
+                                @if (editModel.Latitude.HasValue && editModel.Longitude.HasValue)
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle small">
+                                        <i class="bi bi-check-circle-fill me-1"></i>Location set (@editModel.Latitude.Value.ToString("0.0000"), @editModel.Longitude.Value.ToString("0.0000"))
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary small">
+                                        Click map or locate address to pin
+                                    </span>
+                                }
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Longitude</label>
-                                <InputNumber @bind-Value="editModel.Longitude" class="form-control" placeholder="23.7949" step="0.0001" />
+                            <div id="adminBusinessPickerMap" style="height: 220px; width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; z-index: 1;"></div>
+                            <div class="form-text small text-muted mt-1">
+                                <i class="bi bi-cursor me-1"></i>Click anywhere on the map or drag the pin to fine-tune the exact storefront location.
                             </div>
                         </div>
 
@@ -268,10 +304,14 @@
     private bool isPopupVisible = false;
     private bool isLoading = true;
     private bool isSaving = false;
+    private bool isLocating = false;
+    private string? locationSearchMessage;
     private string? errorMessage;
     private string selectedApprovalFilter = "All";
 
     private bool isNew => editModel?.Id == Guid.Empty;
+    private bool shouldInitMap = false;
+    private DotNetObjectReference<BusinessesAdmin>? dotNetHelper;
 
     private long maxFileSize = 1024 * 1024 * 5;
 
@@ -320,8 +360,20 @@
         }
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (isPopupVisible && shouldInitMap && editModel != null)
+        {
+            shouldInitMap = false;
+            dotNetHelper ??= DotNetObjectReference.Create(this);
+            await Task.Delay(100); // Allow modal DOM element to render
+            await JS.InvokeVoidAsync("locationPickerMap.initPicker", "adminBusinessPickerMap", editModel.Latitude, editModel.Longitude, dotNetHelper);
+        }
+    }
+
     private void ShowPopup(BusinessGetDTO b)
     {
+        locationSearchMessage = null;
         editModel = new BusinessUpdateDTO
         {
             Id = b.Id,
@@ -337,12 +389,67 @@
         };
 
         isPopupVisible = true;
+        shouldInitMap = true;
     }
 
-    private void ClosePopup()
+    private async Task ClosePopup()
     {
         isPopupVisible = false;
+        shouldInitMap = false;
+        locationSearchMessage = null;
         editModel = null;
+        try
+        {
+            await JS.InvokeVoidAsync("locationPickerMap.destroy", "adminBusinessPickerMap");
+        }
+        catch { }
+    }
+
+    [JSInvokable]
+    public void OnCoordinatesSelected(double lat, double lng)
+    {
+        if (editModel != null)
+        {
+            editModel.Latitude = Math.Round(lat, 6);
+            editModel.Longitude = Math.Round(lng, 6);
+            locationSearchMessage = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LocateAddress()
+    {
+        if (editModel == null || string.IsNullOrWhiteSpace(editModel.Address))
+        {
+            locationSearchMessage = "Please enter an address first.";
+            return;
+        }
+
+        isLocating = true;
+        locationSearchMessage = null;
+        try
+        {
+            var result = await JS.InvokeAsync<GeocodeResultDTO>("locationPickerMap.geocodeAddress", editModel.Address);
+            if (result != null && result.Success)
+            {
+                editModel.Latitude = Math.Round(result.Lat, 6);
+                editModel.Longitude = Math.Round(result.Lon, 6);
+                await JS.InvokeVoidAsync("locationPickerMap.updateLocation", "adminBusinessPickerMap", result.Lat, result.Lon);
+                locationSearchMessage = null;
+            }
+            else
+            {
+                locationSearchMessage = "Address could not be found automatically. You can click directly on the map to pin your location.";
+            }
+        }
+        catch (Exception ex)
+        {
+            locationSearchMessage = $"Geocoding error: {ex.Message}";
+        }
+        finally
+        {
+            isLocating = false;
+        }
     }
 
     private async Task LoadFiles(InputFileChangeEventArgs e)
@@ -393,6 +500,21 @@
         errorMessage = null;
         try
         {
+            // Auto geocode if coordinates are missing
+            if ((!editModel.Latitude.HasValue || !editModel.Longitude.HasValue) && !string.IsNullOrWhiteSpace(editModel.Address))
+            {
+                try
+                {
+                    var result = await JS.InvokeAsync<GeocodeResultDTO>("locationPickerMap.geocodeAddress", editModel.Address);
+                    if (result != null && result.Success)
+                    {
+                        editModel.Latitude = Math.Round(result.Lat, 6);
+                        editModel.Longitude = Math.Round(result.Lon, 6);
+                    }
+                }
+                catch { }
+            }
+
             if (isNew)
             {
                 var createDto = new BusinessCreateDTO
@@ -425,7 +547,7 @@
             }
 
             await LoadDataAsync();
-            ClosePopup();
+            await ClosePopup();
         }
         catch (Exception ex)
         {
@@ -456,5 +578,15 @@
         {
             errorMessage = $"Error deleting data: {ex.Message}";
         }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("locationPickerMap.destroy", "adminBusinessPickerMap");
+        }
+        catch { }
+        dotNetHelper?.Dispose();
     }
 }
